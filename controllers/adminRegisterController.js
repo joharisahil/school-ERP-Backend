@@ -4,9 +4,10 @@ import { handleValidationError } from "../middlewares/errorHandler.js";
 
 export const adminRegister= async (req, res, next) => {
   console.log(req.body);
-  const { email, password  } = req.body;
+  const { email, password, role  } = req.body;
   try {
-      if (!email || !password  ) {
+      if (!email || !password || !role ) {
+        return res.status(400).json({success: false, message:"Please Fill Form!"})
         handleValidationError("Please Fill Form!", 400);
   }
 
@@ -16,7 +17,7 @@ export const adminRegister= async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Admin already exists" });
     }
 
-  await Admin.create({ email, password});
+  await Admin.create({ email, password, role});
   res.status(200).json({
     success: true,
     message: "Admin Created!",

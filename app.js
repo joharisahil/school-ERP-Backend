@@ -13,9 +13,10 @@ import eventsRouter from "./router/eventsRouter.js";
 import examRouter from "./router/examRouter.js";
 import attendanceRouter from "./router/attendanceRouter.js";
 import usersRouter from "./router/usersRouter.js"
-import adminRegisterRouter from "./router/adminRegisterRouter.js"
+import adminRegisterRouter from "./router/adminRegisterRouter.js";
+import protectedRoutes from "./router/protectedRoutes.js";
 import  { errorHandler } from "./middlewares/errorHandler.js";
-
+import cookieParser from "cookie-parser";
 
 
 const app = express();
@@ -28,6 +29,8 @@ app.use(
     
     }) 
 );
+
+app.use(cookieParser());
 
 app.use((err, req, res, next) => {
     errorHandler(err, req, res, next);
@@ -48,6 +51,7 @@ app.use("/api/v1/exam", examRouter);
 app.use("/api/v1/attendance", attendanceRouter);
 
 app.use("/api/v1/users", usersRouter);
+app.use("/api/v1/dashboard", protectedRoutes);
 app.use("/api/v1/register", adminRegisterRouter);
 
 dbConnection()
