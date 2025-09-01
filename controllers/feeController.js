@@ -37,54 +37,54 @@ export const getFeeById = async (req, res) => {
 };
 
 // Update Fee Record
-export const updateFee = async (req, res) => {
-  try {
-    const fee = await Fee.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!fee) return res.status(404).json({ message: "Fee record not found" });
-    res.json(fee);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
+// export const updateFee = async (req, res) => {
+//   try {
+//     const fee = await Fee.findByIdAndUpdate(req.params.id, req.body, { new: true });
+//     if (!fee) return res.status(404).json({ message: "Fee record not found" });
+//     res.json(fee);
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// };
 
 // Delete Fee Record
-export const deleteFee = async (req, res) => {
-  try {
-    const fee = await Fee.findByIdAndDelete(req.params.id);
-    if (!fee) return res.status(404).json({ message: "Fee record not found" });
-    res.json({ message: "Fee record deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// export const deleteFee = async (req, res) => {
+//   try {
+//     const fee = await Fee.findByIdAndDelete(req.params.id);
+//     if (!fee) return res.status(404).json({ message: "Fee record not found" });
+//     res.json({ message: "Fee record deleted successfully" });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
 
 // Add Payment (Partial / Full)
-export const payFee = async (req, res) => {
-  try {
-    const { amount, mode, transactionId } = req.body;
-    const fee = await Fee.findById(req.params.id);
-    if (!fee) return res.status(404).json({ message: "Fee record not found" });
+// export const payFee = async (req, res) => {
+//   try {
+//     const { amount, mode, transactionId } = req.body;
+//     const fee = await Fee.findById(req.params.id);
+//     if (!fee) return res.status(404).json({ message: "Fee record not found" });
 
-    // Add payment history
-    fee.paymentHistory.push({ amount, mode, transactionId });
-    fee.amountPaid += amount;
-    fee.balanceAmount = fee.totalAmount - fee.amountPaid;
+//     // Add payment history
+//     fee.paymentHistory.push({ amount, mode, transactionId });
+//     fee.amountPaid += amount;
+//     fee.balanceAmount = fee.totalAmount - fee.amountPaid;
 
-    // Update status
-    if (fee.amountPaid >= fee.totalAmount) {
-      fee.status = "Paid";
-    } else if (fee.amountPaid > 0) {
-      fee.status = "Partial";
-    } else {
-      fee.status = "Pending";
-    }
+//     // Update status
+//     if (fee.amountPaid >= fee.totalAmount) {
+//       fee.status = "Paid";
+//     } else if (fee.amountPaid > 0) {
+//       fee.status = "Partial";
+//     } else {
+//       fee.status = "Pending";
+//     }
 
-    await fee.save();
-    res.json(fee);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
+//     await fee.save();
+//     res.json(fee);
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// };
 
 // ✅ Add Extra Fee API
 export const addExtraFee = async (req, res) => {
