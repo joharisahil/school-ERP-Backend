@@ -9,6 +9,9 @@ import assignmentRouter from "./router/assignmentRouter.js";
 import announcementRouter from "./router/announcementRouter.js";
 import classRouter from "./router/classRouter.js";
 import libraryRouter from "./router/libraryRouter.js";
+
+import feeRouter from "./router/feeRouter.js";
+
 import eventsRouter from "./router/eventsRouter.js";
 import examRouter from "./router/examRouter.js";
 import attendanceRouter from "./router/attendanceRouter.js";
@@ -50,6 +53,8 @@ app.use("/api/v1/library", libraryRouter);
 app.use("/api/v1/events", eventsRouter);
 app.use("/api/v1/exam", examRouter);
 app.use("/api/v1/attendance", attendanceRouter);
+
+app.use("/api/v1/fees", feeRouter);
 
 app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/dashboard", protectedRoutes);
