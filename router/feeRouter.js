@@ -1,5 +1,5 @@
 import express from "express";
-import { createFee, getFees, getFeeById, updateFee, deleteFee, payFee, addExtraFee } from "../controllers/feeController.js";
+import { createFee, getFees, getFeeById, addExtraFee } from "../controllers/feeController.js";
 
 const router = express.Router();
 
