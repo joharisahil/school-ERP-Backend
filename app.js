@@ -17,6 +17,7 @@ import adminRegisterRouter from "./router/adminRegisterRouter.js";
 import protectedRoutes from "./router/protectedRoutes.js";
 import  { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
+import { verifyToken } from "./middlewares/authMiddleware.js";
 
 
 const app = express();
@@ -53,6 +54,13 @@ app.use("/api/v1/attendance", attendanceRouter);
 app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/dashboard", protectedRoutes);
 app.use("/api/v1/register", adminRegisterRouter);
+app.get("/api/v1/profile", verifyToken, (req, res) => {
+  res.json({
+    id: req.user.id,
+    role: req.user.role,
+    email: req.user.email,
+  });
+});
 
 dbConnection()
  

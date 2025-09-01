@@ -1,16 +1,15 @@
 import jwt from "jsonwebtoken";
 import { handleValidationError } from "../middlewares/errorHandler.js";
-import { Admin } from "../models/adminRegisterSchema.js";
+import { User } from "../models/userRegisterSchema.js";
 import { Student, Teacher } from "../models/usersSchema.js";
 
 // Helper: generate JWT
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user._id, email: user.email, role: user.role }, // payload
-    process.env.SECRET_KEY,
-    { expiresIn: "1d" } // token validity
+export const generateToken = (user) =>
+  jwt.sign(
+    { id: user._id.toString(), email: user.email, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
   );
-};
 
 export const adminSignIn = async (req, res, next) => {
   const { email, password, role } = req.body;
@@ -19,7 +18,7 @@ export const adminSignIn = async (req, res, next) => {
       return handleValidationError("Please provide email and password", 400);
     }
 
-    const existingAdmin = await Admin.findOne({ email });
+    const existingAdmin = await User.findOne({ email });
     if (!existingAdmin) {
       return res
         .status(401)
@@ -59,81 +58,59 @@ export const adminSignIn = async (req, res, next) => {
   }
 };
 
-export const studentSignIn = async (req, res, next) => {
-  const { email, password } = req.body;
+export const teacherSignIn = async (req, res, next) => {
   try {
-    if (!email || !password) {
-      return handleValidationError("Please provide email and password", 400);
-    }
+    const { email, password } = req.body;
+    const user = await User.findOne({ email, role: "teacher" });
+    if (!user) return res.status(401).json({ success: false, message: "Invalid credentials" });
 
-    const existingStudent = await Student.findOne({ email });
-    if (
-      !existingStudent ||
-      !(await existingStudent.isValidPassword(password))
-    ) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid email or password" });
-    }
+    const ok = await user.isValidPassword(password);
+    if (!ok) return res.status(401).json({ success: false, message: "Invalid credentials" });
 
-    const token = generateToken(existingStudent);
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Student signed in successfully",
-      user: {
-        id: existingStudent._id,
-        email: existingStudent.email,
-        role: existingStudent.role,
-      },
-    });
+    const token = generateToken(user);
+    res
+      .cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000
+      })
+      .status(200)
+      .json({
+        success: true,
+        message: "Teacher signed in successfully",
+        token,
+        user: { id: user._id, email: user.email, role: user.role }
+      });
   } catch (err) {
     next(err);
   }
 };
 
-export const teacherSignIn = async (req, res, next) => {
-  const { email, password } = req.body;
+export const studentSignIn = async (req, res, next) => {
   try {
-    if (!email || !password) {
-      return handleValidationError("Please provide email and password", 400);
-    }
+    const { email, password } = req.body;
+    const user = await User.findOne({ email, role: "student" });
+    if (!user) return res.status(401).json({ success: false, message: "Invalid credentials" });
 
-    const existingTeacher = await Teacher.findOne({ email });
-    if (
-      !existingTeacher ||
-      !(await existingTeacher.isValidPassword(password))
-    ) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid email or password" });
-    }
+    const ok = await user.isValidPassword(password);
+    if (!ok) return res.status(401).json({ success: false, message: "Invalid credentials" });
 
-    const token = generateToken(existingTeacher);
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Teacher signed in successfully",
-      user: {
-        id: existingTeacher._id,
-        email: existingTeacher.email,
-        role: existingTeacher.role,
-      },
-    });
+    const token = generateToken(user);
+    res
+      .cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000
+      })
+      .status(200)
+      .json({
+        success: true,
+        message: "Student signed in successfully",
+        token,
+        user: { id: user._id, email: user.email, role: user.role }
+      });
   } catch (err) {
     next(err);
   }

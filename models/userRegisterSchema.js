@@ -1,12 +1,13 @@
+// models/userRegisterSchema.js
 import mongoose from "mongoose";
 import validator from "validator";
 import bcrypt from "bcrypt";
 
-const adminRegisterSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // ← remove this if you want school-level uniqueness
     lowercase: true,
     validate: [validator.isEmail, "Please provide a valid email"],
   },
@@ -15,24 +16,21 @@ const adminRegisterSchema = new mongoose.Schema({
     required: true,
     minlength: 6,
   },
-    role: {
+  role: {
     type: String,
     enum: ["admin", "student", "teacher"],
     required: true,
-  }
-});
+  },
+}, { timestamps: true });
 
-// Hash password before saving
-adminRegisterSchema.pre("save", async function (next) {
+userSchema.pre("save", async function(next){
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// Method to compare password
-adminRegisterSchema.methods.isValidPassword = async function (password) {
+userSchema.methods.isValidPassword = function(password) {
   return bcrypt.compare(password, this.password);
 };
 
-export const Admin = mongoose.model('Admin Register', adminRegisterSchema);
-
+export const User = mongoose.model("User", userSchema); 
