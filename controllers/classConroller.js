@@ -50,7 +50,7 @@ export const assignStudentToClass = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Student or Class not found" });
     }
 
-    // ❌ If student is already assigned to a class, prevent reassignment
+    // If student is already assigned to a class, prevent reassignment
     if (student.classId) {
       if (student.classId.toString() === classId) {
         return res.status(400).json({
@@ -64,7 +64,7 @@ export const assignStudentToClass = async (req, res, next) => {
       });
     }
 
-    // ✅ Assign student
+    // Assign student
     student.classId = classId;
     student.grade = classObj.grade;
     await student.save();
@@ -105,10 +105,10 @@ export const bulkAssignStudents = async (req, res, next) => {
 
     for (const s of students) {
       if (!s.classId) {
-        // ✅ Free student → assign
+        // Free student → assign
         eligibleStudents.push(s);
       } else if (s.classId._id.toString() === classId) {
-        // ❌ Already in this class → skip
+        // Already in this class → skip
         skipped.push({
           id: s._id,
           name: s.name,
@@ -116,7 +116,7 @@ export const bulkAssignStudents = async (req, res, next) => {
           reason: "Student is already in this class",
         });
       } else {
-        // ❌ Assigned to another class → skip
+        // Assigned to another class → skip
         skipped.push({
           id: s._id,
           name: s.name,
@@ -172,7 +172,7 @@ export const uploadCSV = async (req, res, next) => {
 
         for (const studentData of students) {
           try {
-            // 1️⃣ Check if User already exists for this email
+            // Check if User already exists for this email
             const existingUser = await User.findOne({ email: studentData.email });
             if (existingUser) {
               skipped.push({
@@ -183,7 +183,7 @@ export const uploadCSV = async (req, res, next) => {
               continue;
             }
 
-            // 2️⃣ Create new User for this student
+            // Create new User for this student
             const hashedPassword = await bcrypt.hash("student@123", 10); // set default password
             const newUser = await User.create({
               email: studentData.email,
@@ -191,7 +191,7 @@ export const uploadCSV = async (req, res, next) => {
               role: "student",
             });
 
-            // 3️⃣ Create Student linked with User
+            // Create Student linked with User
             const newStudent = await Student.create({
               user: newUser._id,
               admin: req.user.id, // from token
@@ -202,7 +202,7 @@ export const uploadCSV = async (req, res, next) => {
               classId: classId,
             });
 
-            // 4️⃣ Add student to class
+            // Add student to class
             classObj.students.push(newStudent._id);
             assigned.push({ name: newStudent.name, email: newStudent.email });
 
