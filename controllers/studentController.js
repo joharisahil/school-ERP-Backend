@@ -26,7 +26,7 @@ export const createStudent = async (req, res) => {
       return res.status(403).json({ error: "Only admins can register students" });
     }
     console.log("admin found", req.user.role);
-    const { email, password, name, grade, registrationNumber } = req.body;
+    const { email, password, name, registrationNumber } = req.body;
     console.log("User Creation started");
     const user = await User.create({ email, password, role: "student" });
     console.log("User Created");
@@ -34,7 +34,6 @@ export const createStudent = async (req, res) => {
       user: user._id,
       admin: req.user.id,
       name,
-      grade,
       email,
       registrationNumber,
     });

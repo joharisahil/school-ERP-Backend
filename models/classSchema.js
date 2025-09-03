@@ -1,17 +1,20 @@
 import mongoose from "mongoose";
-import validator from "validator";
 
 const classSchema = new mongoose.Schema({
   grade: {
     type: String,
-    required: true
+    required: true,
   },
+  section: {
+    type: String,
+    required: true,
+  },
+  students: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "Student" }
+  ]
 });
 
+// Ensure grade + section is unique per school
+classSchema.index({ grade: 1, section: 1 }, { unique: true });
 
-export const Class = mongoose.model('Classes', classSchema);
-
-
-
-
-
+export const Class = mongoose.model("Class", classSchema);
