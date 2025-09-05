@@ -10,10 +10,10 @@ const teacherSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  subject: {
-    type: String,
-    required: true
-  },
+  // subject: {
+  //   type: String,
+  //   required: true
+  // },
   admin:{
     type: mongoose.SchemaTypes.ObjectId,
     ref:"User",

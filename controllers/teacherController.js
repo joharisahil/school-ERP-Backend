@@ -25,7 +25,7 @@ import { handleValidationError } from "../middlewares/errorHandler.js";
         return res.status(403).json({ error: "Only admins can register teachers" });
       }
   
-      const { email, password, name, subject } = req.body;
+      const { email, password, name, } = req.body;
   
       // Create login user for teacher
       const user = await User.create({ email, password, role: "teacher" });
@@ -35,7 +35,6 @@ import { handleValidationError } from "../middlewares/errorHandler.js";
         user: user._id,
         admin: req.user.id,
         name,
-        subject,
         email,
       });
   
