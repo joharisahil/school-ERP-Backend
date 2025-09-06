@@ -23,11 +23,10 @@ const feeStructureSchema = new mongoose.Schema(
       ref: "Class",
       required: true,
     },
-
-    session: { 
-     type: String, 
-     required: true
-     }, // e.g. "2025-26"
+    session: {
+      type: String,
+      required: true,
+    }, // e.g. "2025-26"
     collectionMonths: {
       type: [String],
       validate: {
@@ -37,7 +36,6 @@ const feeStructureSchema = new mongoose.Schema(
       },
       required: true,
     },
-    // One due date per selected month
     dueDates: {
       type: Map, // key: month (e.g. "April"), value: Date string
       of: Date,
@@ -70,7 +68,7 @@ const feeStructureSchema = new mongoose.Schema(
 // Ensure unique per class + session (only one active structure)
 feeStructureSchema.index({ classId: 1, session: 1 }, { unique: true });
 
-// Server-side total calculation safeguard
+// Auto-calc totalAmount
 feeStructureSchema.pre("validate", function (next) {
   if (
     this.collectionMonths?.length &&
@@ -84,7 +82,8 @@ feeStructureSchema.pre("validate", function (next) {
 // Validate dueDates keys match collectionMonths
 feeStructureSchema.pre("validate", function (next) {
   const months = new Set(this.collectionMonths || []);
-  const keys = new Set(Object.keys(this.dueDates || {}));
+  const keys = new Set(this.dueDates ? Array.from(this.dueDates.keys()) : []);
+
   if (months.size === 0 || months.size !== keys.size) {
     return next(
       new Error(
@@ -92,9 +91,17 @@ feeStructureSchema.pre("validate", function (next) {
       )
     );
   }
-  for (const m of months)
-    if (!keys.has(m)) return next(new Error(`Missing dueDate for month: ${m}`));
+
+  for (const m of months) {
+    if (!keys.has(m)) {
+      return next(new Error(`Missing dueDate for month: ${m}`));
+    }
+  }
+
   next();
 });
 
-export const FeeStructure = mongoose.model("FeeStructure", feeStructureSchema);
+export const FeeStructure = mongoose.model(
+  "FeeStructure",
+  feeStructureSchema
+);

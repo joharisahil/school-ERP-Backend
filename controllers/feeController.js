@@ -157,3 +157,85 @@ export const collectFee = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+//
+// 4. Get All Fee Structures (Admin only)
+//
+export const getFeeStructures = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view fee structures" });
+    }
+
+    const feeStructures = await FeeStructure.find().populate("classId", "name"); // populating class name
+    res.status(200).json(feeStructures);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//
+// 5. Get Fee Structure by ID (Admin only)
+//
+export const getFeeStructureById = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view fee structures" });
+    }
+
+    const { structureId } = req.params;
+    const structure = await FeeStructure.findById(structureId).populate("classId", "name");
+    if (!structure) return res.status(404).json({ error: "Fee structure not found" });
+
+    res.status(200).json(structure);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//
+// 6. Get Fee Record for a Student (Admin + Student themselves)
+//
+export const getStudentFee = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // Admins can see any student, Students can only see their own
+    if (req.user.role !== "admin" && req.user.id !== studentId) {
+      return res.status(403).json({ error: "Unauthorized to view this student's fee" });
+    }
+
+    const studentFee = await StudentFee.find({ studentId })
+      .populate("studentId", "name rollNo classId")
+      .populate("classId", "name")
+      .populate("structureId", "session totalAmount amountPerInstallment");
+
+    if (!studentFee.length) {
+      return res.status(404).json({ error: "No fee record found for this student" });
+    }
+
+    res.status(200).json(studentFee);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//
+// 7. Get All Students’ Fee Records (Admin only)
+//
+export const getAllStudentFees = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view all student fees" });
+    }
+
+    const allFees = await StudentFee.find()
+      .populate("studentId", "name rollNo classId")
+      .populate("classId", "name")
+      .populate("structureId", "session totalAmount amountPerInstallment");
+
+    res.status(200).json(allFees);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
