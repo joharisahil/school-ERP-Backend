@@ -27,12 +27,11 @@ const studentSchema = new mongoose.Schema({
   classId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Class",
-    required: true,
   },
-  grade: {
-    type: String,
-    required: true,
-  },
+  // grade: {
+  //   type: String,
+  //   required: true,
+  // },
   dob: {
     type: Date,
     required: true,
@@ -44,6 +43,7 @@ const studentSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
+    unique: true,
   },
   phone: {
     type: String,

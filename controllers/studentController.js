@@ -47,12 +47,19 @@ import { handleValidationError } from "../middlewares/errorHandler.js";
 //     res.status(500).json({ error: error.message });
 //   }
 // };
+
+const generateRegistrationNumber=()=>{
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(100 + Math.random()*900);
+  return `REG-${timestamp}${random}`;
+}
+
 export const createStudent = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can register students" });
     }
-
+    console.log("Step1")
     const {
       firstName,
       lastName,
@@ -60,7 +67,6 @@ export const createStudent = async (req, res) => {
       phone,
       dob,
       address,
-      grade,
       parentEmail,
       contactPhone,
       relation,
@@ -76,6 +82,13 @@ export const createStudent = async (req, res) => {
       role: "student",
     });
 
+    let registrationNumber;
+    let exists=true;
+    while(exists){
+      registrationNumber =generateRegistrationNumber();
+      exists= await Student.findOne({registrationNumber});
+    }
+
     // Save student details
     const student = await Student.create({
       user: user._id,
@@ -85,8 +98,8 @@ export const createStudent = async (req, res) => {
       email,
       phone,
       dob,
+      registrationNumber,
       address,
-      grade,
       parentEmail,
       contactPhone,
       relation,
@@ -97,7 +110,7 @@ export const createStudent = async (req, res) => {
       student,
       loginCredentials: {
         email,
-        password: defaultPassword, // ✅ show admin the password in response
+        password: defaultPassword, // show admin the password in response
       },
     });
   } catch (error) {
