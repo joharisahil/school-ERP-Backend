@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 const subjectSchema = new mongoose.Schema({
   name: {
     type: String,
+    required: true,
   },
   code: {
     type: String,
     required: true,
-    unique: true, // e.g., MATH101, ENG102
   },
   admin: {
     type: mongoose.SchemaTypes.ObjectId,
@@ -28,6 +28,7 @@ const subjectSchema = new mongoose.Schema({
   ],
 });
 
-subjectSchema.index({ admin: 1, code: 1 }, { unique: true }); // no duplicate subject per school
+// Ensure subject `code` is unique per admin (school)
+subjectSchema.index({ admin: 1, code: 1 }, { unique: true });
 
 export const Subject = mongoose.model("Subject", subjectSchema);
