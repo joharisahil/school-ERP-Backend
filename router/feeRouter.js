@@ -1,18 +1,38 @@
 import express from "express";
-import { createFee, getFees, getFeeById, addExtraFee } from "../controllers/feeController.js";
+import {
+  createFeeStructure,
+  assignFeeToStudent,
+  collectFee,
+  getFeeStructures,
+  getFeeStructureById,
+  getStudentFee,
+  getAllStudentFees,
+} from "../controllers/feeController.js";
+import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// CRUD routes
-router.post("/", createFee);        // Create a new fee record
-router.get("/", getFees);           // Get all fee records
-router.get("/:id", getFeeById);     // Get fee record by ID
-//router.put("/:id", updateFee);      // Update fee record
-//router.delete("/:id", deleteFee);   // Delete fee record
+//
+// 1. Fee Structure Setup (Admin only)
+//
+router.post("/structures", verifyToken, createFeeStructure);  // Create structure
+router.get("/structures", verifyToken, getFeeStructures);     // Get all structures
+router.get("/structures/:id", verifyToken, getFeeStructureById); // Get structure by ID
 
-// Payment-specific route
-//router.post("/:id/pay", payFee);    // Add payment to a student's fee record
+//
+// 2. Assign Fee to Student (Admin only)
+//
+router.post("/assign", verifyToken, assignFeeToStudent);
 
-router.post("/:id/extra", addExtraFee); // ➝ Add extra fee to existing record
+//
+// 3. Collect Fee (Admin only)
+//
+router.post("/:studentFeeId/pay", verifyToken, collectFee);
+
+//
+// 4. Fee Records
+//
+router.get("/student/:studentId", verifyToken, getStudentFee); // Get one student’s fee record
+router.get("/all", verifyToken, getAllStudentFees);            // Get all student fee records
 
 export default router;

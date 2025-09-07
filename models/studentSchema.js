@@ -2,11 +2,20 @@ import mongoose from "mongoose";
 
 const studentSchema = new mongoose.Schema({
   user: {
-    type: mongoose.SchemaTypes.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
-  name: {
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User", // Admin who created the student
+    required: true,
+  },
+  firstName: {
+    type: String,
+    required: true,
+  },
+  lastName: {
     type: String,
     required: true,
   },
@@ -15,24 +24,49 @@ const studentSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  // grade: {
-  //   type: String,
-  //   required: true,
-  // },
   classId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Class",
   },
-  admin: {
-    type: mongoose.SchemaTypes.ObjectId,
-    ref: "User",
+  // grade: {
+  //   type: String,
+  //   required: true,
+  // },
+  dob: {
+    type: Date,
+    required: true,
+  },
+  address: {
+    type: String,
     required: true,
   },
   email: {
     type: String,
     required: true,
-  }
-});
+    unique: true,
+  },
+  phone: {
+    type: String,
+    required: true,
+  },
+  parentEmail: {
+    type: String,
+    default: null,
+  },
+  contactPhone: {
+    type: String,
+    required: true,
+  },
+  relation: {
+    type: String,
+    required: true, // e.g. Father, Mother, Guardian
+  },
+  // New fields
+  fatherName: { type: String },
+  motherName: { type: String },
+  fatherOccupation: { type: String },
+  motherOccupation: { type: String },
+}, { timestamps: true });
 
 // Ensure email is unique per school (admin)
 studentSchema.index({ admin: 1, email: 1 }, { unique: true });
