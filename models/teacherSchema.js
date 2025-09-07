@@ -1,32 +1,61 @@
 import mongoose from "mongoose";
 
-const teacherSchema = new mongoose.Schema({
-  user:{
-   type:mongoose.SchemaTypes.ObjectId, 
-   ref:"User", 
-   required: true
+const teacherSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", // Admin who created the teacher
+      required: true,
+    },
+    firstName: {
+      type: String,
+      required: true,
+    },
+    lastName: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+    },
+    phone2: {
+      type: String,
+      default: null, // optional phone number
+    },
+    dob: {
+      type: Date,
+      required: true,
+    },
+    address: {
+      type: String,
+      required: true,
+    },
+    subjects: {
+      type: [String], // array of subjects
+      required: true,
+    },
+    qualifications: {
+      type: [String], // multiple degrees
+      required: true,
+    },
+    experienceYears: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
   },
-  name: {
-    type: String,
-    required: true
-  },
-  // subject: {
-  //   type: String,
-  //   required: true
-  // },
-  admin:{
-    type: mongoose.SchemaTypes.ObjectId,
-    ref:"User",
-    required: true,
-  },
-  email:{
-    type:String,
-    required: true,
-  }
-});
+  { timestamps: true }
+);
 
-
-teacherSchema.index({admin: 1, email: 1}, {unique:true});
-
-export const Teacher = mongoose.model('Teacher', teacherSchema);
-
+export const Teacher = mongoose.model("Teacher", teacherSchema);
