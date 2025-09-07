@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import validator from "validator";
 
 const studentSchema = new mongoose.Schema(
   {
@@ -45,6 +46,7 @@ const studentSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      validate: [validator.isEmail, "Please provide a valid email"],
       unique: true,
     },
     phone: {
@@ -54,6 +56,7 @@ const studentSchema = new mongoose.Schema(
     contactEmail: {
       type: String,
       required: true,
+      validate: [validator.isEmail, "Please provide a valid email"],
       default: null,
     },
     contactName: {
@@ -84,11 +87,13 @@ const studentSchema = new mongoose.Schema(
     fatherEmail: {
       type: String,
       required: true,
+      validate: [validator.isEmail, "Please provide a valid email"],
       default: null,
     },
     motherEmail: {
       type: String,
       required: true,
+      validate: [validator.isEmail, "Please provide a valid email"],
       default: null,
     },
     fatherOccupation: {
