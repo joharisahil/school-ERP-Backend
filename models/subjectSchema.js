@@ -9,7 +9,7 @@ const subjectSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true, // e.g., MATH101, ENG102
-  },
+  }, 
   admin: {
     type: mongoose.SchemaTypes.ObjectId,
     ref: "User", // the school admin

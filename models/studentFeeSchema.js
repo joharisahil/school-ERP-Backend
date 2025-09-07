@@ -26,7 +26,7 @@ const studentFeeSchema = new mongoose.Schema({
   // Financials
   amountPerInstallment: { type: Number, required: true, min: 0 },
   totalAmount: { type: Number, required: true, min: 0 },
-  discount: { type: Number, default: 0, min: 0 }, // flat discount at assignment time
+//  discount: { type: Number, default: 0, min: 0 }, // flat discount at assignment time
   netPayable: { type: Number, required: true, min: 0 },
 
   // Running totals
