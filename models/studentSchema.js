@@ -53,6 +53,14 @@ const studentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    fatherphone: {
+      type: String,
+      required: true,
+    },
+    motherphone: {
+      type: String,
+      required: true,
+    },
     contactEmail: {
       type: String,
       required: true,
