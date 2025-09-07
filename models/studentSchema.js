@@ -61,6 +61,11 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true, // e.g. Father, Mother, Guardian
   },
+  // New fields
+  fatherName: { type: String },
+  motherName: { type: String },
+  fatherOccupation: { type: String },
+  motherOccupation: { type: String },
 }, { timestamps: true });
 
 // Ensure email is unique per school (admin)

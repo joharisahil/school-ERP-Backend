@@ -102,17 +102,91 @@ export const assignFeeToStudent = async (req, res) => {
 //
 // 3. Collect Fee (Admin only)
 //
+const generateTransactionId = () => {
+  const random = Math.floor(100000 + Math.random() * 900000);
+  const timestamp = Date.now().toString().slice(-6);
+  return `TXN-${random}-${timestamp}`;
+};
+
+// export const collectFee = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can collect fees" });
+//     }
+
+//     let { amount, mode } = req.body; // total amount to pay
+//     const { studentFeeId } = req.params;
+
+//     const feeRecord = await StudentFee.findById(studentFeeId).populate("studentId");
+//     if (!feeRecord) return res.status(404).json({ error: "Student fee record not found" });
+
+//     // Generate unique transaction ID
+//     let transactionId = generateTransactionId();
+//     while (feeRecord.payments.some(p => p.transactionId === transactionId)) {
+//       transactionId = generateTransactionId();
+//     }
+
+//     let amountLeft = amount;
+//     const paymentsMade = [];
+
+//     for (const installment of feeRecord.installments) {
+//       if (installment.status === "Paid") continue; // skip fully paid
+
+//       if (amountLeft >= installment.amount) {
+//         installment.amountPaid = installment.amount;
+//         installment.status = "Paid";
+//         paymentsMade.push({ month: installment.month, amount: installment.amount });
+//         amountLeft -= installment.amount;
+//       } else {
+//         // Cannot partially pay, stop here
+//         break;
+//       }
+//     }
+
+//     // Update totals
+//     const totalPaidNow = paymentsMade.reduce((acc, p) => acc + p.amount, 0);
+//     feeRecord.totalPaid += totalPaidNow;
+//     feeRecord.balance = feeRecord.netPayable - feeRecord.totalPaid;
+
+//     // Push into payments array (record total paid now as one transaction)
+//     if (totalPaidNow > 0) {
+//       feeRecord.payments.push({
+//         amount: totalPaidNow,
+//         mode,
+//         transactionId,
+//         month: paymentsMade.map(p => p.month).join(", "),
+//       });
+//     }
+
+//     await feeRecord.save();
+
+//     res.status(200).json({
+//       message: "Payment recorded",
+//       studentName: `${feeRecord.studentId.firstName} ${feeRecord.studentId.lastName}`,
+//       transactionId,
+//       paymentsMade,
+//       leftoverAmount: amountLeft,
+//       feeRecord,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+// adjust path
+
 export const collectFee = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can collect fees" });
     }
 
-    const { amount, mode, transactionId, month } = req.body;
+    const { amount, mode, month } = req.body;  // ❌ removed transactionId from client input
     const { studentFeeId } = req.params;
 
     const feeRecord = await StudentFee.findById(studentFeeId);
-    if (!feeRecord) return res.status(404).json({ error: "Student fee record not found" });
+    if (!feeRecord) {
+      return res.status(404).json({ error: "Student fee record not found" });
+    }
 
     // Find installment
     const installment = feeRecord.installments.find((i) => i.month === month);
@@ -138,6 +212,9 @@ export const collectFee = async (req, res) => {
     feeRecord.totalPaid += amount;
     feeRecord.balance = feeRecord.netPayable - feeRecord.totalPaid;
 
+    // Generate unique transactionId
+    const transactionId = generateTransactionId();
+
     // Push into payments array
     feeRecord.payments.push({
       amount,
@@ -151,6 +228,7 @@ export const collectFee = async (req, res) => {
     res.status(200).json({
       message: "Payment recorded",
       warning,
+      transactionId,   // return txn id to admin
       feeRecord,
     });
   } catch (error) {
