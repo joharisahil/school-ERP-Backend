@@ -213,15 +213,16 @@ export const createStudent = async (req, res) => {
 
 export const getAllStudents = async (req, res, next) => {
   try {
-   const students = await Student.find();
-  res.status(200).json({
-    success: true,
-    students,
-  });   
-} catch (err) {
-  next(err);
-}
-};
+    const students = await Student.find()
+      .populate("classId"); // fetch full class object
 
+    res.status(200).json({
+      success: true,
+      students,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 
