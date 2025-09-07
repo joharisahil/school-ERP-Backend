@@ -261,8 +261,10 @@ export const getFeeStructureById = async (req, res) => {
       return res.status(403).json({ error: "Only admins can view fee structures" });
     }
 
-    const { structureId } = req.params;
-    const structure = await FeeStructure.findById(structureId).populate("classId", "name");
+    const { classId } = req.params;
+    //console.log("class id",classId);
+    //const structure = await FeeStructure.findById(classId).populate("classId", "name");
+    const structure = await FeeStructure.findOne({ classId }).populate("classId", "name");
     if (!structure) return res.status(404).json({ error: "Fee structure not found" });
 
     res.status(200).json(structure);

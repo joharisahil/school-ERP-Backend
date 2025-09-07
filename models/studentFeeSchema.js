@@ -5,7 +5,7 @@ const installmentSchema = new mongoose.Schema({
   month: { type: String, required: true },
   dueDate: { type: Date, required: true },
   amount: { type: Number, required: true, min: 0 },
-  status: { type: String, enum: ["Pending","Partial","Paid"], default: "Pending" },
+  status: { type: String, enum: ["Pending","Paid"], default: "Pending" },
   amountPaid: { type: Number, default: 0, min: 0 }
 }, { _id: false });
 
