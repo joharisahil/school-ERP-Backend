@@ -28,6 +28,6 @@ const subjectSchema = new mongoose.Schema({
   ],
 });
 
-subjectSchema.index({ admin: 1, name: 1 }, { unique: true }); // no duplicate subject per school
+subjectSchema.index({ admin: 1, code: 1 }, { unique: true }); // no duplicate subject per school
 
 export const Subject = mongoose.model("Subject", subjectSchema);
