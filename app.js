@@ -27,13 +27,20 @@ import { verifyToken } from "./middlewares/authMiddleware.js";
 const app = express();
 config({path: "./config/config.env"});
  
-app.use( 
-    cors({
-        origin: [process.env.FRONTEND_URL],
-        methods: ["GET", "POST", "PUT", "DELETE"], 
+// app.use( 
+//     cors({
+//         origin: [process.env.FRONTEND_URL],
+//         methods: ["GET", "POST", "PUT", "DELETE"], 
     
-    }) 
-);
+//     }) 
+// );
+
+app.use(cors({
+  origin: 'http://localhost:8080',
+  methods: ['GET','POST','PUT','DELETE'],
+  credentials: true
+}));
+
 
 app.use(cookieParser());
 
