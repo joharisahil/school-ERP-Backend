@@ -230,3 +230,46 @@ export const getAllStudents = async (req, res, next) => {
 };
 
 
+export const updateStudent = async (req, res) => {
+  try {
+    const { id } = req.params; // studentId from URL
+    const updates = req.body;
+
+    // Prevent duplicate registrationNumber
+    if (updates.registrationNumber) {
+      const exists = await Student.findOne({
+        registrationNumber: updates.registrationNumber,
+        _id: { $ne: id },
+      });
+      if (exists) {
+        return res.status(400).json({ error: "Registration number already in use" });
+      }
+    }
+
+    // Prevent duplicate email for this admin
+    if (updates.email) {
+      const exists = await Student.findOne({
+        email: updates.email,
+        admin: req.user._id, // assuming admin logged in
+        _id: { $ne: id },
+      });
+      if (exists) {
+        return res.status(400).json({ error: "Email already in use under this admin" });
+      }
+    }
+
+    const student = await Student.findByIdAndUpdate(id, updates, {
+      new: true,          // return updated document
+      runValidators: true // apply schema validation
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    res.json({ message: "Student updated successfully", student });
+  } catch (error) {
+    console.error("Error updating student:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};

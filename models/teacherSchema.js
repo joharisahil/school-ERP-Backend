@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import validator from "validator";
 
 const teacherSchema = new mongoose.Schema(
   {
@@ -20,10 +21,16 @@ const teacherSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    email: {
+    registrationNumber: {
       type: String,
       required: true,
       unique: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique:true,
+      //validate: [validator.isEmail, "Please provide a valid email"],
     },
     phone: {
       type: String,
@@ -57,5 +64,6 @@ const teacherSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+teacherSchema.index({ admin: 1, email: 1 }, { unique: true });
 
 export const Teacher = mongoose.model("Teacher", teacherSchema);

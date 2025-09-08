@@ -47,6 +47,12 @@ import { handleValidationError } from "../middlewares/errorHandler.js";
   //   }
   // };
   
+const generateRegistrationNumber=()=>{
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(100 + Math.random()*900);
+  return `TID-${timestamp}${random}`;
+}
+
 export const createTeacher = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -67,11 +73,21 @@ export const createTeacher = async (req, res) => {
     } = req.body;
 
     const defaultPassword = "teacher@123";
+    console.log(firstName,lastName,email,phone,phone2,dob,address,subjects,qualifications,experienceYears);
+    // Check if email already exists for a teacher
+   
+    //Generate unique teacherId
+    let registrationNumber;
+    let exists = true;
+    while (exists) {
+      registrationNumber = generateRegistrationNumber(); // string
+      exists = await Teacher.findOne({ registrationNumber }); // resolved Promise
+    }
 
-    // Create login user for teacher
+    // Create User
     const user = await User.create({ email, password: defaultPassword, role: "teacher" });
-
-    // Save teacher profile
+  console.log("Step:1", )
+    // Create Teacher
     const teacher = await Teacher.create({
       user: user._id,
       admin: req.user.id,
@@ -85,8 +101,10 @@ export const createTeacher = async (req, res) => {
       subjects,
       qualifications,
       experienceYears,
+      registrationNumber, // ✅ this is a string now
     });
-
+    console.log("step 2");
+    
     res.status(201).json({
       message: "Teacher registered successfully",
       teacher,
@@ -95,9 +113,11 @@ export const createTeacher = async (req, res) => {
         password: defaultPassword,
       },
     });
+
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ error: "This email is already registered for this school" });
+      console.log(error)
+      return res.status(400).json({ error: "Duplicate field found" });
     }
     res.status(500).json({ error: error.message });
   }
@@ -116,3 +136,41 @@ export const createTeacher = async (req, res) => {
   };
   
  
+// =========================
+// EDIT / UPDATE TEACHER
+// =========================
+export const updateTeacher = async (req, res) => {
+  try {
+    const { id } = req.params; // teacherId from URL
+    const updates = req.body;
+
+    // Prevent updating registrationNumber/email to duplicates
+    if (updates.registrationNumber) {
+      const exists = await Teacher.findOne({ registrationNumber: updates.registrationNumber, _id: { $ne: id } });
+      if (exists) {
+        return res.status(400).json({ error: "Registration number already in use" });
+      }
+    }
+
+    if (updates.email) {
+      const exists = await Teacher.findOne({ email: updates.email, _id: { $ne: id } });
+      if (exists) {
+        return res.status(400).json({ error: "Email already in use" });
+      }
+    }
+
+    const teacher = await Teacher.findByIdAndUpdate(id, updates, {
+      new: true, // return updated doc
+      runValidators: true,
+    });
+
+    if (!teacher) {
+      return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    res.json({ message: "Teacher updated successfully", teacher });
+  } catch (error) {
+    console.error("Error updating teacher:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
