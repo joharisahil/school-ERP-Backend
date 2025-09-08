@@ -17,7 +17,7 @@ import mongoose from "mongoose";
 
 export const dbConnection = () => {
   mongoose
-    .connect(process.env.MONGO_URL, {
+    .connect(process.env.MONGO_URL_PRODUCTION, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     })
