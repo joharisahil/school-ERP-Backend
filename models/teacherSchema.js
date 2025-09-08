@@ -30,7 +30,7 @@ const teacherSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique:true,
-      //validate: [validator.isEmail, "Please provide a valid email"],
+      validate: [validator.isEmail, "Please provide a valid email"],
     },
     phone: {
       type: String,
