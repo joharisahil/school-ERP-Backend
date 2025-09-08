@@ -47,7 +47,7 @@ export const assignFeeToStudent = async (req, res) => {
       return res.status(403).json({ error: "Only admins can assign fees" });
     }
 
-    const { studentId, classId, session, structureId, discount = 0 } = req.body;
+    const { studentId, classId, session, structureId = 0 } = req.body;
 
     // Get student + structure
     const student = await Student.findById(studentId);
@@ -61,7 +61,7 @@ export const assignFeeToStudent = async (req, res) => {
     }
 
     const totalAmount = structure.totalAmount;
-    const netPayable = totalAmount - discount;
+    //const netPayable = totalAmount - discount;
 
     // Build installments
     const installments = structure.collectionMonths.map((month) => ({
@@ -79,7 +79,7 @@ export const assignFeeToStudent = async (req, res) => {
       structureId,
       amountPerInstallment: structure.amountPerInstallment,
       totalAmount,
-      discount,
+      //discount,
       netPayable,
       totalPaid: 0,
       balance: netPayable,

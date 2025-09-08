@@ -129,8 +129,8 @@ export const createStudent = async (req, res) => {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can register students" });
     }
-    console.log("Step1");
-
+    // console.log("Step1");
+    
     const {
       firstName,
       lastName,
@@ -138,13 +138,19 @@ export const createStudent = async (req, res) => {
       phone,
       dob,
       address,
-      parentEmail,
+      contactEmail,   // parent/guardian email
+      contactName,    // parent/guardian name
       contactPhone,
       relation,
       fatherName,
       motherName,
+      fatherphone,
+      motherphone,
+      fatherEmail,
+      motherEmail,
       fatherOccupation,
       motherOccupation,
+      classId,
     } = req.body;
 
     // Default password for all students
@@ -157,6 +163,7 @@ export const createStudent = async (req, res) => {
       role: "student",
     });
 
+    // Ensure unique registration number
     let registrationNumber;
     let exists = true;
     while (exists) {
@@ -175,11 +182,17 @@ export const createStudent = async (req, res) => {
       dob,
       registrationNumber,
       address,
-      parentEmail,
+      classId,
+      contactEmail,
+      contactName,
       contactPhone,
       relation,
       fatherName,
       motherName,
+      fatherphone,
+      motherphone,
+      fatherEmail,
+      motherEmail,
       fatherOccupation,
       motherOccupation,
     });
@@ -201,17 +214,19 @@ export const createStudent = async (req, res) => {
 };
 
 
+
 export const getAllStudents = async (req, res, next) => {
   try {
-   const students = await Student.find();
-  res.status(200).json({
-    success: true,
-    students,
-  });   
-} catch (err) {
-  next(err);
-}
-};
+    const students = await Student.find()
+      .populate("classId"); // fetch full class object
 
+    res.status(200).json({
+      success: true,
+      students,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 

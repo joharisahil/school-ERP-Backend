@@ -19,34 +19,89 @@ import { handleValidationError } from "../middlewares/errorHandler.js";
 //     }
 //   };
 
-  export const createTeacher = async (req, res) => {
-    try {
-      if (req.user.role !== "admin") {
-        return res.status(403).json({ error: "Only admins can register teachers" });
-      }
+  // export const createTeacher = async (req, res) => {
+  //   try {
+  //     if (req.user.role !== "admin") {
+  //       return res.status(403).json({ error: "Only admins can register teachers" });
+  //     }
   
-      const { email, password, name, } = req.body;
+  //     const { email, password, name, } = req.body;
   
-      // Create login user for teacher
-      const user = await User.create({ email, password, role: "teacher" });
+  //     // Create login user for teacher
+  //     const user = await User.create({ email, password, role: "teacher" });
   
-      // Link profile to the logged-in admin (req.user.id!)
-      const teacher = await Teacher.create({
-        user: user._id,
-        admin: req.user.id,
-        name,
-        email,
-      });
+  //     // Link profile to the logged-in admin (req.user.id!)
+  //     const teacher = await Teacher.create({
+  //       user: user._id,
+  //       admin: req.user.id,
+  //       name,
+  //       email,
+  //     });
   
-      res.status(201).json({ message: "Teacher registered successfully", teacher });
-    } catch (error) {
-      if (error.code === 11000) {
-        return res.status(400).json({ error: "This email is already registered for this school" });
-      }
-      res.status(500).json({ error: error.message });
+  //     res.status(201).json({ message: "Teacher registered successfully", teacher });
+  //   } catch (error) {
+  //     if (error.code === 11000) {
+  //       return res.status(400).json({ error: "This email is already registered for this school" });
+  //     }
+  //     res.status(500).json({ error: error.message });
+  //   }
+  // };
+  
+export const createTeacher = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can register teachers" });
     }
-  };
-  
+
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      phone2,
+      dob,
+      address,
+      subjects,
+      qualifications,
+      experienceYears,
+    } = req.body;
+
+    const defaultPassword = "teacher@123";
+
+    // Create login user for teacher
+    const user = await User.create({ email, password: defaultPassword, role: "teacher" });
+
+    // Save teacher profile
+    const teacher = await Teacher.create({
+      user: user._id,
+      admin: req.user.id,
+      firstName,
+      lastName,
+      email,
+      phone,
+      phone2,
+      dob,
+      address,
+      subjects,
+      qualifications,
+      experienceYears,
+    });
+
+    res.status(201).json({
+      message: "Teacher registered successfully",
+      teacher,
+      loginCredentials: {
+        email,
+        password: defaultPassword,
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "This email is already registered for this school" });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
 
   export const getAllTeachers = async (req, res, next) => {
     try {
