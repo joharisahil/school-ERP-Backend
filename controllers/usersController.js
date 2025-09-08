@@ -46,7 +46,7 @@ export const adminSignIn = async (req, res, next) => {
     res.cookie("token", token, {
     httpOnly: true,
     secure: true, // because localhost is not HTTPS
-    sameSite: "none", // allow cross-site cookie
+    sameSite: "None", // allow cross-site cookie
     maxAge: 24 * 60 * 60 * 1000,
     });
 

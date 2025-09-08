@@ -41,7 +41,8 @@ app.use(cors({
     "https://schoolonline.netlify.app"
   ],
   methods: ["GET","POST","PUT","DELETE"],
-  credentials: true
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 
