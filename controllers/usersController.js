@@ -43,12 +43,13 @@ export const adminSignIn = async (req, res, next) => {
     //   maxAge: 24 * 60 * 60 * 1000, // 1 day
     // });
 
-    res.cookie("token", token, {
-    httpOnly: true,
-    secure: true, // because localhost is not HTTPS
-    sameSite: "None", // allow cross-site cookie
-    maxAge: 24 * 60 * 60 * 1000,
-    });
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production", // true in Render
+  sameSite: "None", // must be None for Netlify ↔ Render
+  maxAge: 24 * 60 * 60 * 1000,
+});
+
 
 
     res.status(200).json({
