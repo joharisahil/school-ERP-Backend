@@ -5,7 +5,7 @@ export const verifyToken = (req, res, next) => {
   // const bearer = req.headers["authorization"];
   // const headerToken = bearer?.startsWith("Bearer ") ? bearer.split(" ")[1] : null;
   const cookieToken = req.cookies?.token;
-
+  
   const token = cookieToken;
   if (!token) {
     return res.status(401).json({ success: false, message: "Access denied. No token provided." });
