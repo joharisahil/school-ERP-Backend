@@ -35,10 +35,14 @@ config({path: "./config/config.env"});
 //     }) 
 // );
 
-app.use(cors({//frintenf hosted url
-  origin: 'http://localhost:8080',
-  methods: ['GET','POST','PUT','DELETE'],
-  credentials: true
+app.use(cors({
+  origin: [
+    "http://localhost:8080",
+    //"https://schoolonline.netlify.app"
+  ],
+  methods: ["GET","POST","PUT","DELETE"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 

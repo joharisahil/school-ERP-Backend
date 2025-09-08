@@ -36,12 +36,20 @@ export const adminSignIn = async (req, res, next) => {
     const token = generateToken(existingAdmin);
 
     // Send token in httpOnly cookie
+    // res.cookie("token", token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production", // set true in production (https)
+    //   sameSite: "strict",
+    //   maxAge: 24 * 60 * 60 * 1000, // 1 day
+    // });
+
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // set true in production (https)
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    httpOnly: true,
+    secure: true, // because localhost is not HTTPS
+    sameSite: "None", // allow cross-site cookie
+    maxAge: 24 * 60 * 60 * 1000,
     });
+
 
     res.status(200).json({
       success: true,
