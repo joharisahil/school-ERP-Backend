@@ -12,12 +12,12 @@ import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/create", verifyToken, createSubject);
-router.post("/assign/teacher", verifyToken, assignSubjectToTeacher);
-router.post("/assign/class", verifyToken, assignSubjectToClass)
-router.get("/all", verifyToken, getAllSubjects);
-router.get("/teacher/:teacherId", verifyToken, getSubjectsByTeacher);
-router.get("/class/:classId", verifyToken, getSubjectsByClass);
-router.delete("/:subjectId", verifyToken, deleteSubject);
+router.post("/create",  createSubject);
+router.post("/assign/teacher",  assignSubjectToTeacher);
+router.post("/assign/class",  assignSubjectToClass)
+router.get("/all",  getAllSubjects);
+router.get("/teacher/:teacherId",  getSubjectsByTeacher);
+router.get("/class/:classId",  getSubjectsByClass);
+router.delete("/:subjectId",  deleteSubject);
 
 export default router;

@@ -7,10 +7,10 @@ const upload = multer({ dest: "uploads/" })
 const router = express.Router();
 
 router.get('/getall', getAllClasses);
-router.post("/create", verifyToken, createClass);
-router.post("/assign/student", verifyToken, assignStudentToClass);
-router.post("/assign/student/bulk", verifyToken, bulkAssignStudents);
-router.post("/upload-csv", verifyToken, upload.single("file"), uploadCSV);
+router.post("/create",  createClass);
+router.post("/assign/student",  assignStudentToClass);
+router.post("/assign/student/bulk",  bulkAssignStudents);
+router.post("/upload-csv",  upload.single("file"), uploadCSV);
 
 
 export default router;

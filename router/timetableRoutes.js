@@ -10,7 +10,7 @@ import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/period", verifyToken, createPeriod); // manually assign
+router.post("/period",  createPeriod); // manually assign
 router.post("/auto-generate", verifyToken, autoGenerateTimetable); // auto-generate
 router.get("/class/:classId", verifyToken, getClassTimetable); // class timetable
 router.get("/teacher/:teacherId", verifyToken, getTeacherTimetable); // teacher timetable
