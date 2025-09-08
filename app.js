@@ -36,8 +36,11 @@ config({path: "./config/config.env"});
 // );
 
 app.use(cors({
-  origin: 'https://schoolonline.netlify.app',
-  methods: ['GET','POST','PUT','DELETE'],
+  origin: [
+    "http://localhost:8080",
+    "https://schoolonline.netlify.app"
+  ],
+  methods: ["GET","POST","PUT","DELETE"],
   credentials: true
 }));
 
