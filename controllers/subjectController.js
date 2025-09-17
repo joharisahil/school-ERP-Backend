@@ -1,6 +1,7 @@
 import { Subject } from "../models/subjectSchema.js";
 import { Teacher } from "../models/teacherSchema.js";
 import { Class } from "../models/classSchema.js";
+import { paginateQuery } from "../utils/paginate.js";
 
 //  Create a Subject
 export const createSubject = async (req, res, next) => {
@@ -82,21 +83,72 @@ export const assignSubjectToClass = async (req, res, next) => {
 };
 
 //  Get All Subjects (with teachers & classes)
+// export const getAllSubjects = async (req, res, next) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can view subjects" });
+//     }
+
+//     // Defaults: page=1, limit=10
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     // Fetch subjects with pagination
+//     const subjects = await Subject.find({ admin: req.user.id })
+//       .populate("teachers", "name email")
+//       .populate("classes", "grade section")
+//       .skip(skip)
+//       .limit(limit);
+
+//     // Count total subjects for this admin
+//     const totalSubjects = await Subject.countDocuments({ admin: req.user.id });
+
+//     res.status(200).json({
+//       success: true,
+//       subjects,
+//       pagination: {
+//         totalSubjects,
+//         currentPage: page,
+//         totalPages: Math.ceil(totalSubjects / limit),
+//         limit,
+//       },
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
 export const getAllSubjects = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can create subjects" });
+      return res.status(403).json({ error: "Only admins can view subjects" });
     }
 
-    const subjects = await Subject.find({ admin: req.user.id })
-      .populate("teachers", "name email")
-      .populate("classes", "grade section");
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
-    res.status(200).json({ success: true, subjects });
+    const { results: subjects, pagination } = await paginateQuery(
+      Subject,
+      { admin: req.user.id },
+      [
+        { path: "teachers", select: "name email" },
+        { path: "classes", select: "grade section" },
+      ],
+      page,
+      limit
+    );
+
+    res.status(200).json({
+      success: true,
+      subjects,
+      pagination,
+    });
   } catch (err) {
     next(err);
   }
 };
+
 
 //  Get Subjects by Teacher
 export const getSubjectsByTeacher = async (req, res, next) => {

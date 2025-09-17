@@ -5,6 +5,7 @@ import { User } from "../models/userRegisterSchema.js";
 import fs from "fs";
 import csv from "csv-parser";
 import bcrypt from "bcryptjs";
+import { paginateQuery } from "../utils/paginate.js";
 
 export const createClass = async (req, res, next) => {
   try {
@@ -27,18 +28,41 @@ export const createClass = async (req, res, next) => {
 };
 
 
+// export const getAllClasses = async (req, res, next) => {
+//   try {
+//   const classes = await Class.find();
+//   res.status(200).json({
+//     success: true,
+//     classes,
+//   });  
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+ 
 export const getAllClasses = async (req, res, next) => {
   try {
-  const classes = await Class.find();
-  res.status(200).json({
-    success: true,
-    classes,
-  });  
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const { results: classes, pagination } = await paginateQuery(
+      Class,
+      {},
+      [], // no populate here, unless you want to add teachers/students later
+      page,
+      limit
+    );
+
+    res.status(200).json({
+      success: true,
+      classes,
+      pagination,
+    });
   } catch (err) {
     next(err);
   }
 };
- 
+
 export const assignStudentToClass = async (req, res, next) => {
   try {
     const { studentId, classId } = req.body;

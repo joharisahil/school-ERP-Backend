@@ -1,6 +1,7 @@
 import express from "express";
 import {config} from 'dotenv';
 import cors from "cors";
+
 import {dbConnection} from "./database/dbConnection.js";
 import studentRouter from "./router/studentRouter.js";
 import teacherRouter from "./router/teacherRouter.js";
