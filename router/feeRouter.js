@@ -14,7 +14,7 @@ import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/structures",  createFeeStructure);  // Create structure
+router.post("/structures", verifyToken, createFeeStructure);  // Create structure
 router.get("/structures",  getFeeStructures);     // Get all structures
 router.get("/structures/:classId",  getFeeStructureById); // Get structure by ID
 router.post("/assign",  assignFeeToStudent);

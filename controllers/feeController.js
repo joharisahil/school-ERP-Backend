@@ -5,24 +5,57 @@ import { Student } from "../models/studentSchema.js"; // assuming you already ha
 //
 // 1. Create Fee Structure (Admin only)
 //
+// export const createFeeStructure = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can create fee structures" });
+//     }
+
+//     const { classId, session, collectionMonths, dueDates, amountPerInstallment } = req.body;
+
+//     // Server computes totalAmount
+//     const totalAmount = (collectionMonths?.length || 0) * amountPerInstallment;
+
+//     const feeStructure = await FeeStructure.create({
+//       classId,
+//       session,
+//       collectionMonths,
+//       dueDates,
+//       amountPerInstallment,
+//       totalAmount,
+//       createdBy: req.user.id,
+//     });
+
+//     res.status(201).json({
+//       message: "Fee structure created successfully",
+//       feeStructure,
+//     });
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return res.status(409).json({ error: "Fee structure already exists for this class & session" });
+//     }
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 export const createFeeStructure = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can create fee structures" });
     }
 
-    const { classId, session, collectionMonths, dueDates, amountPerInstallment } = req.body;
+    const { classId, session, monthDetails } = req.body;
 
-    // Server computes totalAmount
-    const totalAmount = (collectionMonths?.length || 0) * amountPerInstallment;
+    if (!monthDetails || !monthDetails.length) {
+      return res.status(400).json({ error: "monthDetails cannot be empty" });
+    }
 
+    // Create the FeeStructure
     const feeStructure = await FeeStructure.create({
       classId,
       session,
-      collectionMonths,
-      dueDates,
-      amountPerInstallment,
-      totalAmount,
+      monthDetails,
+      totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
       createdBy: req.user.id,
     });
 
@@ -37,22 +70,80 @@ export const createFeeStructure = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 //
 // 2. Assign Fee to Student (Admin only)
 //
+// export const assignFeeToStudent = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can assign fees" });
+//     }
+
+//     const { studentId, classId, session, structureId = 0 } = req.body;
+
+//     // Get student + structure
+//     const student = await Student.findById(studentId);
+//     if (!student) return res.status(404).json({ error: "Student not found" });
+
+//     const structure = await FeeStructure.findById(structureId);
+//     if (!structure) return res.status(404).json({ error: "Fee structure not found" });
+
+//     if (structure.classId.toString() !== classId || structure.session !== session) {
+//       return res.status(400).json({ error: "Class/Session mismatch with Fee Structure" });
+//     }
+
+//     const totalAmount = structure.totalAmount;
+//     //const netPayable = totalAmount - discount;
+
+//     // Build installments
+//     const installments = structure.collectionMonths.map((month) => ({
+//       month,
+//       dueDate: structure.dueDates.get(month),
+//       amount: structure.amountPerInstallment,
+//       status: "Pending",
+//       amountPaid: 0,
+//     }));
+
+//     const studentFee = await StudentFee.create({
+//       studentId,
+//       classId,
+//       session,
+//       structureId,
+//       amountPerInstallment: structure.amountPerInstallment,
+//       totalAmount,
+//       //discount,
+//       netPayable,
+//       totalPaid: 0,
+//       balance: netPayable,
+//       installments,
+//       createdBy: req.user.id,
+//     });
+
+//     res.status(201).json({
+//       message: "Fee assigned to student",
+//       studentFee,
+//     });
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return res.status(409).json({ error: "Fee already assigned for this student & session" });
+//     }
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 export const assignFeeToStudent = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can assign fees" });
     }
 
-    const { studentId, classId, session, structureId = 0 } = req.body;
+    const { studentId, classId, session, structureId } = req.body;
 
-    // Get student + structure
+    // Get student
     const student = await Student.findById(studentId);
     if (!student) return res.status(404).json({ error: "Student not found" });
 
+    // Get fee structure
     const structure = await FeeStructure.findById(structureId);
     if (!structure) return res.status(404).json({ error: "Fee structure not found" });
 
@@ -60,29 +151,28 @@ export const assignFeeToStudent = async (req, res) => {
       return res.status(400).json({ error: "Class/Session mismatch with Fee Structure" });
     }
 
-    const totalAmount = structure.totalAmount;
-    //const netPayable = totalAmount - discount;
-
-    // Build installments
-    const installments = structure.collectionMonths.map((month) => ({
-      month,
-      dueDate: structure.dueDates.get(month),
-      amount: structure.amountPerInstallment,
+    // Build installments from monthDetails
+    const installments = (structure.monthDetails || []).map((m) => ({
+      month: m.month,
+      startDate: m.startDate,
+      dueDate: m.dueDate,
+      amount: m.amount,
+      lateFine: m.lateFine || 0,
       status: "Pending",
       amountPaid: 0,
     }));
+
+    const totalAmount = installments.reduce((sum, inst) => sum + inst.amount, 0);
 
     const studentFee = await StudentFee.create({
       studentId,
       classId,
       session,
       structureId,
-      amountPerInstallment: structure.amountPerInstallment,
       totalAmount,
-      //discount,
-      netPayable,
+      netPayable: totalAmount,
       totalPaid: 0,
-      balance: netPayable,
+      balance: totalAmount,
       installments,
       createdBy: req.user.id,
     });
