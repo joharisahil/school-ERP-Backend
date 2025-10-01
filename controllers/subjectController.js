@@ -12,13 +12,14 @@ export const createSubject = async (req, res, next) => {
 
     const { name, code } = req.body;
     
-    if (!name || !code) {
-      return res.status(400).json({ success: false, message: "Name and code are required" });
+    // Only check for name
+    if (!name) {
+      return res.status(400).json({ success: false, message: "Name is required" });
     }
 
     const subject = await Subject.create({
       name,
-      code,
+      code: code || null, // optional, default to null if not provided
       admin: req.user.id,
     });
 

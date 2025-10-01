@@ -7,7 +7,7 @@ const subjectSchema = new mongoose.Schema({
   },
   code: {
     type: String,
-    required: true,
+    //required: true,
     unique: true, // e.g., MATH101, ENG102
   }, 
   admin: {
