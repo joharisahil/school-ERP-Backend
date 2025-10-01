@@ -7,6 +7,8 @@ import {
   getFeeStructureById,
   getStudentFee,
   getAllStudentFees,
+  applyScholarship,
+  getStudentsWithScholarships
 } from "../controllers/feeController.js";
 import { verifyToken } from "../middlewares/authMiddleware.js";
 
@@ -18,6 +20,9 @@ router.get("/structures/:classId",  getFeeStructureById); // Get structure by ID
 router.post("/assign",  assignFeeToStudent);
 router.post("/:studentFeeId/pay",  collectFee);
 router.get("/student/:studentId",  getStudentFee); // Get one student’s fee record
-router.get("/all",  getAllStudentFees);            // Get all student fee records
+router.get("/all", verifyToken, getAllStudentFees);            // Get all student fee records
+router.post("/:studentFeeId/scholarship", applyScholarship);
+router.get("/with-scholarships", verifyToken, getStudentsWithScholarships);
+
 
 export default router;

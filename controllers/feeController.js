@@ -319,3 +319,90 @@ export const getAllStudentFees = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+//new work 30-03-25
+export const applyScholarship = async (req, res) => {
+  try {
+    const { studentFeeId } = req.params;
+    const { name, type, value, valueType, period, months = [] } = req.body;
+
+    // 1. Find student fee record
+    const studentFee = await StudentFee.findById(studentFeeId);
+    if (!studentFee) return res.status(404).json({ error: "Student fee not found" });
+
+    // 2. Create scholarship object
+    const scholarship = {
+      name,
+      type,
+      value: value || 0,
+      valueType: valueType || "fixed",
+      period,
+      months,
+      appliedAt: new Date()
+    };
+
+    // 3. Push scholarship to studentFee
+    studentFee.scholarships.push(scholarship);
+
+    // 4. Apply scholarship logic to installments
+    studentFee.installments.forEach(inst => {
+      studentFee.scholarships.forEach(sch => {
+        let scholarshipAmount = 0;
+
+        if (sch.type === "full") {
+          scholarshipAmount = inst.amount;
+        } else if (sch.type === "half") {
+          scholarshipAmount = inst.amount / 2;
+        } else if (sch.type === "custom") {
+          scholarshipAmount = sch.valueType === "percentage"
+            ? (inst.amount * sch.value / 100)
+            : sch.value;
+        }
+
+        // Apply only for selected months
+        if (sch.period === "yearly" || (sch.months.includes(inst.month))) {
+          inst.amount -= scholarshipAmount;
+          if (inst.amount < 0) inst.amount = 0;
+        }
+      });
+    });
+
+    // 5. Update netPayable & balance
+    studentFee.netPayable = studentFee.installments.reduce((acc, i) => acc + i.amount, 0);
+    studentFee.balance = studentFee.netPayable - studentFee.totalPaid;
+
+    // 6. Save
+    await studentFee.save();
+
+    res.status(200).json({
+      message: "Scholarship applied successfully",
+      studentFee
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getStudentsWithScholarships = async (req, res) => {
+  try {
+    // Only admin can access
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view this" });
+    }
+
+    // Find all student fees where scholarships array is not empty
+    const studentsWithScholarships = await StudentFee.find({ "scholarships.0": { $exists: true } })
+      .populate("studentId", "firstName lastName rollNo classId")
+      .populate("classId", "name")
+      .populate("structureId", "session totalAmount amountPerInstallment");
+
+    res.status(200).json({
+      count: studentsWithScholarships.length,
+      students: studentsWithScholarships
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
