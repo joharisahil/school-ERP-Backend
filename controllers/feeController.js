@@ -4,25 +4,25 @@ import { Student } from "../models/studentSchema.js"; // assuming you already ha
 
 //
 // 1. Create Fee Structure (Admin only)
-//
+
 // export const createFeeStructure = async (req, res) => {
 //   try {
 //     if (req.user.role !== "admin") {
 //       return res.status(403).json({ error: "Only admins can create fee structures" });
 //     }
 
-//     const { classId, session, collectionMonths, dueDates, amountPerInstallment } = req.body;
+//     const { classId, session, monthDetails } = req.body;
 
-//     // Server computes totalAmount
-//     const totalAmount = (collectionMonths?.length || 0) * amountPerInstallment;
+//     if (!monthDetails || !monthDetails.length) {
+//       return res.status(400).json({ error: "monthDetails cannot be empty" });
+//     }
 
+//     // Create the FeeStructure
 //     const feeStructure = await FeeStructure.create({
 //       classId,
 //       session,
-//       collectionMonths,
-//       dueDates,
-//       amountPerInstallment,
-//       totalAmount,
+//       monthDetails,
+//       totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
 //       createdBy: req.user.id,
 //     });
 
@@ -44,32 +44,50 @@ export const createFeeStructure = async (req, res) => {
       return res.status(403).json({ error: "Only admins can create fee structures" });
     }
 
-    const { classId, session, monthDetails } = req.body;
+    const { classIds, session, monthDetails } = req.body;
+
+    if (!classIds || !classIds.length) {
+      return res.status(400).json({ error: "At least one class must be selected" });
+    }
 
     if (!monthDetails || !monthDetails.length) {
       return res.status(400).json({ error: "monthDetails cannot be empty" });
     }
 
-    // Create the FeeStructure
-    const feeStructure = await FeeStructure.create({
-      classId,
-      session,
-      monthDetails,
-      totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
-      createdBy: req.user.id,
-    });
+    const createdStructures = [];
+
+    for (const classId of classIds) {
+      // check existing
+      const exists = await FeeStructure.findOne({ classId, session });
+      if (exists) continue;
+
+      const feeStructure = new FeeStructure({
+        classId,          // ✅ matches schema
+        session,
+        monthDetails,
+        totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
+        createdBy: req.user._id,
+      });
+
+      await feeStructure.save();
+      createdStructures.push(feeStructure);
+    }
+
+    if (!createdStructures.length) {
+      return res.status(409).json({ error: "Fee structures already exist for all selected classes" });
+    }
 
     res.status(201).json({
-      message: "Fee structure created successfully",
-      feeStructure,
+      success: true,
+      message: "Fee structures created successfully",
+      feeStructures: createdStructures,
     });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ error: "Fee structure already exists for this class & session" });
-    }
     res.status(500).json({ error: error.message });
   }
 };
+
+
 //
 // 2. Assign Fee to Student (Admin only)
 //
