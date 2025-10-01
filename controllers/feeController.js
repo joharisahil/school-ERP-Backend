@@ -66,7 +66,7 @@ export const createFeeStructure = async (req, res) => {
         session,
         monthDetails,
         totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
-        createdBy: req.user._id,
+        createdBy: req.user.id || req.user._id,
       });
 
       await feeStructure.save();
