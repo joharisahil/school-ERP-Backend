@@ -189,6 +189,9 @@ export const getSubjectsByClass = async (req, res, next) => {
 
 export const deleteSubject = async (req, res, next) => {
   try {
+     if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create subjects" });
+    }
     const { subjectId } = req.params;
 
     await Subject.findByIdAndDelete(subjectId);
