@@ -1,221 +1,6 @@
 import { FeeStructure } from "../models/feeStructureSchema.js";
 import { StudentFee } from "../models/studentFeeSchema.js";
 import { Student } from "../models/studentSchema.js"; // assuming you already have this
-
-//
-// 1. Create Fee Structure (Admin only)
-
-// export const createFeeStructure = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can create fee structures" });
-//     }
-
-//     const { classId, session, monthDetails } = req.body;
-
-//     if (!monthDetails || !monthDetails.length) {
-//       return res.status(400).json({ error: "monthDetails cannot be empty" });
-//     }
-
-//     // Create the FeeStructure
-//     const feeStructure = await FeeStructure.create({
-//       classId,
-//       session,
-//       monthDetails,
-//       totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
-//       createdBy: req.user.id,
-//     });
-
-//     res.status(201).json({
-//       message: "Fee structure created successfully",
-//       feeStructure,
-//     });
-//   } catch (error) {
-//     if (error.code === 11000) {
-//       return res.status(409).json({ error: "Fee structure already exists for this class & session" });
-//     }
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-export const createFeeStructure = async (req, res) => {
-  try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can create fee structures" });
-    }
-
-    const { classIds, session, monthDetails } = req.body;
-
-    if (!classIds || !classIds.length) {
-      return res.status(400).json({ error: "At least one class must be selected" });
-    }
-
-    if (!monthDetails || !monthDetails.length) {
-      return res.status(400).json({ error: "monthDetails cannot be empty" });
-    }
-
-    const createdStructures = [];
-
-    for (const classId of classIds) {
-      // check existing
-      const exists = await FeeStructure.findOne({ classId, session });
-      if (exists) continue;
-
-      const feeStructure = new FeeStructure({
-        classId,          // ✅ matches schema
-        session,
-        monthDetails,
-        totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
-        createdBy: req.user.id || req.user._id,
-      });
-
-      await feeStructure.save();
-      createdStructures.push(feeStructure);
-    }
-
-    if (!createdStructures.length) {
-      return res.status(409).json({ error: "Fee structures already exist for all selected classes" });
-    }
-
-    res.status(201).json({
-      success: true,
-      message: "Fee structures created successfully",
-      feeStructures: createdStructures,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
-//
-// 2. Assign Fee to Student (Admin only)
-//
-// export const assignFeeToStudent = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can assign fees" });
-//     }
-
-//     const { studentId, classId, session, structureId = 0 } = req.body;
-
-//     // Get student + structure
-//     const student = await Student.findById(studentId);
-//     if (!student) return res.status(404).json({ error: "Student not found" });
-
-//     const structure = await FeeStructure.findById(structureId);
-//     if (!structure) return res.status(404).json({ error: "Fee structure not found" });
-
-//     if (structure.classId.toString() !== classId || structure.session !== session) {
-//       return res.status(400).json({ error: "Class/Session mismatch with Fee Structure" });
-//     }
-
-//     const totalAmount = structure.totalAmount;
-//     //const netPayable = totalAmount - discount;
-
-//     // Build installments
-//     const installments = structure.collectionMonths.map((month) => ({
-//       month,
-//       dueDate: structure.dueDates.get(month),
-//       amount: structure.amountPerInstallment,
-//       status: "Pending",
-//       amountPaid: 0,
-//     }));
-
-//     const studentFee = await StudentFee.create({
-//       studentId,
-//       classId,
-//       session,
-//       structureId,
-//       amountPerInstallment: structure.amountPerInstallment,
-//       totalAmount,
-//       //discount,
-//       netPayable,
-//       totalPaid: 0,
-//       balance: netPayable,
-//       installments,
-//       createdBy: req.user.id,
-//     });
-
-//     res.status(201).json({
-//       message: "Fee assigned to student",
-//       studentFee,
-//     });
-//   } catch (error) {
-//     if (error.code === 11000) {
-//       return res.status(409).json({ error: "Fee already assigned for this student & session" });
-//     }
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-export const assignFeeToStudent = async (req, res) => {
-  try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can assign fees" });
-    }
-
-    const { studentId, classId, session, structureId } = req.body;
-
-    // Get student
-    const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ error: "Student not found" });
-
-    // Get fee structure
-    const structure = await FeeStructure.findById(structureId);
-    if (!structure) return res.status(404).json({ error: "Fee structure not found" });
-
-    if (structure.classId.toString() !== classId || structure.session !== session) {
-      return res.status(400).json({ error: "Class/Session mismatch with Fee Structure" });
-    }
-
-    // Build installments from monthDetails
-    const installments = (structure.monthDetails || []).map((m) => ({
-      month: m.month,
-      startDate: m.startDate,
-      dueDate: m.dueDate,
-      amount: m.amount,
-      lateFine: m.lateFine || 0,
-      status: "Pending",
-      amountPaid: 0,
-    }));
-
-    const totalAmount = installments.reduce((sum, inst) => sum + inst.amount, 0);
-
-    const studentFee = await StudentFee.create({
-      studentId,
-      classId,
-      session,
-      structureId,
-      totalAmount,
-      netPayable: totalAmount,
-      totalPaid: 0,
-      balance: totalAmount,
-      installments,
-      createdBy: req.user.id,
-    });
-
-    res.status(201).json({
-      message: "Fee assigned to student",
-      studentFee,
-    });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ error: "Fee already assigned for this student & session" });
-    }
-    res.status(500).json({ error: error.message });
-  }
-};
-
-//
-// 3. Collect Fee (Admin only)
-//
-const generateTransactionId = () => {
-  const random = Math.floor(100000 + Math.random() * 900000);
-  const timestamp = Date.now().toString().slice(-6);
-  return `TXN-${random}-${timestamp}`;
-};
-
 // export const collectFee = async (req, res) => {
 //   try {
 //     if (req.user.role !== "admin") {
@@ -282,6 +67,323 @@ const generateTransactionId = () => {
 // };
 // adjust path
 
+//
+// export const getFeeStructures = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can view fee structures" });
+//     }
+
+//     const feeStructures = await FeeStructure.find().populate("classId", "name"); // populating class name
+//     res.status(200).json(feeStructures);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+
+
+
+
+
+
+
+
+//
+// 1. Create Fee Structure (Admin only)
+
+// export const createFeeStructure = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can create fee structures" });
+//     }
+
+//     const { classId, session, monthDetails } = req.body;
+
+//     if (!monthDetails || !monthDetails.length) {
+//       return res.status(400).json({ error: "monthDetails cannot be empty" });
+//     }
+
+//     // Create the FeeStructure
+//     const feeStructure = await FeeStructure.create({
+//       classId,
+//       session,
+//       monthDetails,
+//       totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
+//       createdBy: req.user.id,
+//     });
+
+//     res.status(201).json({
+//       message: "Fee structure created successfully",
+//       feeStructure,
+//     });
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return res.status(409).json({ error: "Fee structure already exists for this class & session" });
+//     }
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+// export const createFeeStructure = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can create fee structures" });
+//     }
+
+//     const { classIds, session, monthDetails } = req.body;
+
+//     if (!classIds || !classIds.length) {
+//       return res.status(400).json({ error: "At least one class must be selected" });
+//     }
+
+//     if (!monthDetails || !monthDetails.length) {
+//       return res.status(400).json({ error: "monthDetails cannot be empty" });
+//     }
+
+//     const createdStructures = [];
+
+//     for (const classId of classIds) {
+//       // check existing
+//       const exists = await FeeStructure.findOne({ classId, session });
+//       if (exists) continue;
+
+//       const feeStructure = new FeeStructure({
+//         classId,          // ✅ matches schema
+//         session,
+//         monthDetails,
+//         totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
+//         createdBy: req.user.id || req.user._id,
+//       });
+
+//       await feeStructure.save();
+//       createdStructures.push(feeStructure);
+//     }
+
+//     if (!createdStructures.length) {
+//       return res.status(409).json({ error: "Fee structures already exist for all selected classes" });
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Fee structures created successfully",
+//       feeStructures: createdStructures,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+// //
+// // 2. Assign Fee to Student (Admin only)
+// //
+// // export const assignFeeToStudent = async (req, res) => {
+// //   try {
+// //     if (req.user.role !== "admin") {
+// //       return res.status(403).json({ error: "Only admins can assign fees" });
+// //     }
+
+// //     const { studentId, classId, session, structureId = 0 } = req.body;
+
+// //     // Get student + structure
+// //     const student = await Student.findById(studentId);
+// //     if (!student) return res.status(404).json({ error: "Student not found" });
+
+// //     const structure = await FeeStructure.findById(structureId);
+// //     if (!structure) return res.status(404).json({ error: "Fee structure not found" });
+
+// //     if (structure.classId.toString() !== classId || structure.session !== session) {
+// //       return res.status(400).json({ error: "Class/Session mismatch with Fee Structure" });
+// //     }
+
+// //     const totalAmount = structure.totalAmount;
+// //     //const netPayable = totalAmount - discount;
+
+// //     // Build installments
+// //     const installments = structure.collectionMonths.map((month) => ({
+// //       month,
+// //       dueDate: structure.dueDates.get(month),
+// //       amount: structure.amountPerInstallment,
+// //       status: "Pending",
+// //       amountPaid: 0,
+// //     }));
+
+// //     const studentFee = await StudentFee.create({
+// //       studentId,
+// //       classId,
+// //       session,
+// //       structureId,
+// //       amountPerInstallment: structure.amountPerInstallment,
+// //       totalAmount,
+// //       //discount,
+// //       netPayable,
+// //       totalPaid: 0,
+// //       balance: netPayable,
+// //       installments,
+// //       createdBy: req.user.id,
+// //     });
+
+// //     res.status(201).json({
+// //       message: "Fee assigned to student",
+// //       studentFee,
+// //     });
+// //   } catch (error) {
+// //     if (error.code === 11000) {
+// //       return res.status(409).json({ error: "Fee already assigned for this student & session" });
+// //     }
+// //     res.status(500).json({ error: error.message });
+// //   }
+// // };
+
+// export const assignFeeToStudent = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can assign fees" });
+//     }
+
+//     const { studentId, classId, session, structureId } = req.body;
+
+//     // Get student
+//     const student = await Student.findById(studentId);
+//     if (!student) return res.status(404).json({ error: "Student not found" });
+
+//     // Get fee structure
+//     const structure = await FeeStructure.findById(structureId);
+//     if (!structure) return res.status(404).json({ error: "Fee structure not found" });
+
+//     if (structure.classId.toString() !== classId || structure.session !== session) {
+//       return res.status(400).json({ error: "Class/Session mismatch with Fee Structure" });
+//     }
+
+//     // Build installments from monthDetails
+//     const installments = (structure.monthDetails || []).map((m) => ({
+//       month: m.month,
+//       startDate: m.startDate,
+//       dueDate: m.dueDate,
+//       amount: m.amount,
+//       lateFine: m.lateFine || 0,
+//       status: "Pending",
+//       amountPaid: 0,
+//     }));
+
+//     const totalAmount = installments.reduce((sum, inst) => sum + inst.amount, 0);
+
+//     const studentFee = await StudentFee.create({
+//       studentId,
+//       classId,
+//       session,
+//       structureId,
+//       totalAmount,
+//       netPayable: totalAmount,
+//       totalPaid: 0,
+//       balance: totalAmount,
+//       installments,
+//       createdBy: req.user.id,
+//     });
+
+//     res.status(201).json({
+//       message: "Fee assigned to student",
+//       studentFee,
+//     });
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return res.status(409).json({ error: "Fee already assigned for this student & session" });
+//     }
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+export const createAndAssignFeeStructure = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create fee structures" });
+    }
+
+    const { classIds, session, monthDetails } = req.body;
+
+    if (!classIds?.length) return res.status(400).json({ error: "At least one class required" });
+    if (!monthDetails?.length) return res.status(400).json({ error: "monthDetails required" });
+
+    const createdStructures = [];
+    const allStudentFees = [];
+
+    for (const classId of classIds) {
+      // Skip if structure exists
+      const exists = await FeeStructure.findOne({ classId, session });
+      if (exists) continue;
+
+      // Create fee structure
+      const feeStructure = await FeeStructure.create({
+        classId,
+        session,
+        monthDetails,
+        totalAmount: monthDetails.reduce((sum, m) => sum + m.amount, 0),
+        createdBy: req.user.id,
+      });
+      createdStructures.push(feeStructure);
+
+      // Fetch students of this class & session
+      const students = await Student.find({ classId, session });
+      if (!students.length) continue;
+
+      // Prepare student fees
+      const studentFees = students.map((student) => {
+        const installments = monthDetails.map((m) => ({
+          month: m.month,
+          startDate: m.startDate,
+          dueDate: m.dueDate,
+          amount: m.amount,
+          lateFine: m.lateFine || 0,
+          status: "Pending",
+          amountPaid: 0,
+        }));
+        const totalAmount = installments.reduce((sum, inst) => sum + inst.amount, 0);
+
+        return {
+          studentId: student._id,
+          classId,
+          session,
+          structureId: feeStructure._id,
+          totalAmount,
+          netPayable: totalAmount,
+          totalPaid: 0,
+          balance: totalAmount,
+          installments,
+          createdBy: req.user.id,
+        };
+      });
+
+      // Insert all student fees in one go
+      const createdStudentFees = await StudentFee.insertMany(studentFees);
+      allStudentFees.push(...createdStudentFees);
+    }
+
+    if (!createdStructures.length) {
+      return res.status(409).json({ error: "Fee structures already exist for all selected classes" });
+    }
+
+    res.status(201).json({
+      message: "Fee structures created and assigned to students",
+      feeStructures: createdStructures,
+      studentFees: allStudentFees,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//
+// 3. Collect Fee (Admin only)
+//
+const generateTransactionId = () => {
+  const random = Math.floor(100000 + Math.random() * 900000);
+  const timestamp = Date.now().toString().slice(-6);
+  return `TXN-${random}-${timestamp}`;
+};
+
+
 export const collectFee = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -346,15 +448,83 @@ export const collectFee = async (req, res) => {
 
 //
 // 4. Get All Fee Structures (Admin only)
-//
+
 export const getFeeStructures = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can view fee structures" });
     }
 
-    const feeStructures = await FeeStructure.find().populate("classId", "name"); // populating class name
+    // Default session: current year
+    const currentYear = new Date().getFullYear().toString();
+    const session = req.query.session || currentYear;
+
+    const feeStructures = await FeeStructure.find({ session })
+      .populate("classId", "name"); // populate class name
+
+    if (!feeStructures.length) {
+      return res.status(404).json({ error: `No fee structures found for session ${session}` });
+    }
+
     res.status(200).json(feeStructures);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//4.1 upadte fees 
+export const updateFeeStructure = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can update fee structures" });
+    }
+
+    const { structureId } = req.params;
+    const { monthDetails } = req.body;
+
+    if (!monthDetails || !monthDetails.length) {
+      return res.status(400).json({ error: "monthDetails cannot be empty" });
+    }
+
+    const structure = await FeeStructure.findById(structureId);
+    if (!structure) {
+      return res.status(404).json({ error: "Fee structure not found" });
+    }
+
+    // Update monthDetails and totalAmount
+    structure.monthDetails = monthDetails;
+    structure.totalAmount = monthDetails.reduce((sum, m) => sum + m.amount, 0);
+
+    await structure.save();
+
+    res.status(200).json({
+      message: "Fee structure updated successfully",
+      feeStructure: structure,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+//4.2 delete fees 
+export const deleteFeeStructure = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can delete fee structures" });
+    }
+
+    const { structureId } = req.params;
+
+    const structure = await FeeStructure.findById(structureId);
+    if (!structure) {
+      return res.status(404).json({ error: "Fee structure not found" });
+    }
+
+    // Optional: remove all student fee records linked to this structure
+    await StudentFee.deleteMany({ structureId });
+
+    await structure.deleteOne();
+
+    res.status(200).json({ message: "Fee structure deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -30,12 +30,38 @@ export const createSubject = async (req, res, next) => {
 };
 
 //  Assign Subject to Teacher
-export const assignSubjectToTeacher = async (req, res, next) => {
+// export const assignSubjectToTeacher = async (req, res, next) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can create subjects" });
+//     }
+    
+//     const { subjectId, teacherId } = req.body;
+
+//     const subject = await Subject.findById(subjectId);
+//     const teacher = await Teacher.findById(teacherId);
+
+//     if (!subject || !teacher) {
+//       return res.status(404).json({ success: false, message: "Subject or Teacher not found" });
+//     }
+
+//     if (!subject.teachers.includes(teacherId)) {
+//       subject.teachers.push(teacherId);
+//     }
+//     await subject.save();
+
+//     res.status(200).json({ success: true, message: "Subject assigned to teacher", subject });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
+export const toggleSubjectTeacherAssignment = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can create subjects" });
+      return res.status(403).json({ error: "Only admins can assign/unassign subjects" });
     }
-    
+
     const { subjectId, teacherId } = req.body;
 
     const subject = await Subject.findById(subjectId);
@@ -45,12 +71,25 @@ export const assignSubjectToTeacher = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Subject or Teacher not found" });
     }
 
-    if (!subject.teachers.includes(teacherId)) {
+    let action = '';
+
+    if (subject.teachers.includes(teacherId)) {
+      // Teacher already assigned → remove (unassign)
+      subject.teachers = subject.teachers.filter(id => id.toString() !== teacherId);
+      action = 'unassigned';
+    } else {
+      // Teacher not assigned → add (assign)
       subject.teachers.push(teacherId);
+      action = 'assigned';
     }
+
     await subject.save();
 
-    res.status(200).json({ success: true, message: "Subject assigned to teacher", subject });
+    res.status(200).json({ 
+      success: true, 
+      message: `Teacher successfully ${action} to subject`, 
+      subject 
+    });
   } catch (err) {
     next(err);
   }

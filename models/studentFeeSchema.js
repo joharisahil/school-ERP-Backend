@@ -86,7 +86,7 @@ const studentFeeSchema = new mongoose.Schema({
   structureId: { type: mongoose.Schema.Types.ObjectId, ref: "FeeStructure", required: true },
 
   // Financials
-  amountPerInstallment: { type: Number, required: true, min: 0 },
+  amountPerInstallment: { type: Number, required: false, min: 0 },
   totalAmount: { type: Number, required: true, min: 0 },
   netPayable: { type: Number, required: true, min: 0 },
 
