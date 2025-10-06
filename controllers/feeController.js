@@ -455,15 +455,15 @@ export const getFeeStructures = async (req, res) => {
       return res.status(403).json({ error: "Only admins can view fee structures" });
     }
 
-    // Default session: current year
-    const currentYear = new Date().getFullYear().toString();
-    const session = req.query.session || currentYear;
+    const query = {};
+    if (req.query.session) {
+      query.session = req.query.session;
+    }
 
-    const feeStructures = await FeeStructure.find({ session })
-      .populate("classId", "name"); // populate class name
+    const feeStructures = await FeeStructure.find(query).populate("classId", "name");
 
     if (!feeStructures.length) {
-      return res.status(404).json({ error: `No fee structures found for session ${session}` });
+      return res.status(404).json({ error: "No fee structures found" });
     }
 
     res.status(200).json(feeStructures);
@@ -471,6 +471,7 @@ export const getFeeStructures = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 //4.1 upadte fees 
 export const updateFeeStructure = async (req, res) => {
