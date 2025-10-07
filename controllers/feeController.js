@@ -516,7 +516,7 @@ export const updateFeeStructure = async (req, res) => {
     }
 
     // 2️⃣ Extract params and body
-    const { id } = req.params; // use :id in router
+    const { structureId } = req.params; // ✅ make sure route uses :structureId
     const { monthDetails } = req.body;
 
     if (!monthDetails || !monthDetails.length) {
@@ -524,7 +524,7 @@ export const updateFeeStructure = async (req, res) => {
     }
 
     // 3️⃣ Find the existing fee structure
-    const structure = await FeeStructure.findById(id);
+    const structure = await FeeStructure.findById(structureId);
     if (!structure) {
       return res.status(404).json({ error: "Fee structure not found" });
     }
@@ -535,7 +535,7 @@ export const updateFeeStructure = async (req, res) => {
     await structure.save();
 
     // 5️⃣ Update all related student fee records
-    const relatedStudents = await StudentFee.find({ feeStructure: structure._id });
+    const relatedStudents = await StudentFee.find({ structureId: structure._id });
 
     for (const student of relatedStudents) {
       const oldTotal = student.totalAmount;
@@ -543,7 +543,7 @@ export const updateFeeStructure = async (req, res) => {
 
       // Update student fee details
       student.totalAmount = newTotal;
-      student.remainingAmount = newTotal - (student.paidAmount || 0);
+      student.balance = newTotal - (student.totalPaid || 0);
 
       // Add a record in history
       student.history.push({
@@ -551,6 +551,7 @@ export const updateFeeStructure = async (req, res) => {
         reason: "Fee structure revised by admin",
         oldTotal: oldTotal,
         newTotal: newTotal,
+        adminId: req.user._id, // optional: track who updated
       });
 
       await student.save();
@@ -568,6 +569,7 @@ export const updateFeeStructure = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 //4.2 delete fees 
 export const deleteFeeStructure = async (req, res) => {
   try {
