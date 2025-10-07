@@ -474,35 +474,97 @@ export const getFeeStructures = async (req, res) => {
 
 
 //4.1 upadte fees 
+// export const updateFeeStructure = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can update fee structures" });
+//     }
+
+//     const { structureId } = req.params;
+//     const { monthDetails } = req.body;
+
+//     if (!monthDetails || !monthDetails.length) {
+//       return res.status(400).json({ error: "monthDetails cannot be empty" });
+//     }
+
+//     const structure = await FeeStructure.findById(structureId);
+//     if (!structure) {
+//       return res.status(404).json({ error: "Fee structure not found" });
+//     }
+
+//     // Update monthDetails and totalAmount
+//     structure.monthDetails = monthDetails;
+//     structure.totalAmount = monthDetails.reduce((sum, m) => sum + m.amount, 0);
+
+//     await structure.save();
+
+//     res.status(200).json({
+//       message: "Fee structure updated successfully",
+//       feeStructure: structure,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 export const updateFeeStructure = async (req, res) => {
   try {
+    // 1️⃣ Check admin role
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can update fee structures" });
     }
 
-    const { structureId } = req.params;
+    // 2️⃣ Extract params and body
+    const { id } = req.params; // use :id in router
     const { monthDetails } = req.body;
 
     if (!monthDetails || !monthDetails.length) {
       return res.status(400).json({ error: "monthDetails cannot be empty" });
     }
 
-    const structure = await FeeStructure.findById(structureId);
+    // 3️⃣ Find the existing fee structure
+    const structure = await FeeStructure.findById(id);
     if (!structure) {
       return res.status(404).json({ error: "Fee structure not found" });
     }
 
-    // Update monthDetails and totalAmount
+    // 4️⃣ Update month details and recalculate total
     structure.monthDetails = monthDetails;
     structure.totalAmount = monthDetails.reduce((sum, m) => sum + m.amount, 0);
-
     await structure.save();
 
+    // 5️⃣ Update all related student fee records
+    const relatedStudents = await StudentFee.find({ feeStructure: structure._id });
+
+    for (const student of relatedStudents) {
+      const oldTotal = student.totalAmount;
+      const newTotal = structure.totalAmount;
+
+      // Update student fee details
+      student.totalAmount = newTotal;
+      student.remainingAmount = newTotal - (student.paidAmount || 0);
+
+      // Add a record in history
+      student.history.push({
+        updatedAt: new Date(),
+        reason: "Fee structure revised by admin",
+        oldTotal: oldTotal,
+        newTotal: newTotal,
+      });
+
+      await student.save();
+    }
+
+    // 6️⃣ Send response
     res.status(200).json({
-      message: "Fee structure updated successfully",
+      message: "Fee structure and related student fees updated successfully",
       feeStructure: structure,
+      updatedStudents: relatedStudents.length,
     });
+
   } catch (error) {
+    console.error("Error updating fee structure:", error);
     res.status(500).json({ error: error.message });
   }
 };

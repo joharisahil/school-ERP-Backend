@@ -25,8 +25,8 @@ router.get("/student/:studentId",verifyToken,  getStudentFee); // Get one studen
 router.get("/all", verifyToken, getAllStudentFees);            // Get all student fee records modify required
 router.post("/:studentFeeId/scholarship", applyScholarship);
 router.get("/with-scholarships", verifyToken, getStudentsWithScholarships);
-router.put("/structures/:id", verifyToken, updateFeeStructure);
-router.delete("/structures/:id", verifyToken, deleteFeeStructure);
+router.put("/structures/:structureId", verifyToken, updateFeeStructure);
+router.delete("/delete/:structureId", verifyToken, deleteFeeStructure);
 
 
 export default router;

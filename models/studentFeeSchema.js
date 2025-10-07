@@ -53,6 +53,14 @@
 // models/studentFee.model.js
 import mongoose from "mongoose";
 
+const historySchema = new mongoose.Schema({
+  updatedAt: { type: Date, default: Date.now },
+  reason: { type: String, required: true },
+  oldTotal: { type: Number, required: false },
+  newTotal: { type: Number, required: false },
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "User" } // who made the change
+}, { _id: false });
+
 const installmentSchema = new mongoose.Schema({
   month: { type: String, required: true },
   dueDate: { type: Date, required: true },
@@ -102,6 +110,9 @@ const studentFeeSchema = new mongoose.Schema({
 
   // Scholarships
   scholarships: { type: [scholarshipSchema], default: [] },
+  
+  //history
+  history: { type: [historySchema], default: [] }, 
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 
