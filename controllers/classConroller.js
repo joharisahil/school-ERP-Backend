@@ -9,6 +9,9 @@ import { paginateQuery } from "../utils/paginate.js";
 
 export const createClass = async (req, res, next) => {
   try {
+     if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can register students" });
+    }
     const { grade, section } = req.body;
 
     if (!grade || !section) {
@@ -42,6 +45,9 @@ export const createClass = async (req, res, next) => {
  
 export const getAllClasses = async (req, res, next) => {
   try {
+     if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can register students" });
+    }
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
