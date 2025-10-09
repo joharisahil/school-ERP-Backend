@@ -20,6 +20,6 @@ const classSchema = new mongoose.Schema({
 });
 
 // Ensure grade + section is unique per school
-classSchema.index({ grade: 1, section: 1 }, { unique: true });
+//classSchema.index({ grade: 1, section: 1 }, { unique: true });
 classSchema.index({ admin: 1, grade: 1, section: 1 }, { unique: true });
 export const Class = mongoose.model("Class", classSchema);
