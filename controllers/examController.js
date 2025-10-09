@@ -1,5 +1,5 @@
-
-import {Exam} from "../models/examSchema.js";
+import { Exam } from "../models/examSchema.js";
+import { ExamSchedule } from "../models/examScheduleSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 
 export const addExam = async (req, res, next) => {
@@ -7,7 +7,7 @@ export const addExam = async (req, res, next) => {
   const { name, registrationNumber, className, marks } = req.body;
   try {
     if (!name || !registrationNumber || !className || !marks) {
-        handleValidationError("Please fill out all fields!", 400);
+      handleValidationError("Please fill out all fields!", 400);
     }
     await Exam.create({ name, registrationNumber, className, marks });
     res.status(200).json({
@@ -31,9 +31,6 @@ export const getAllExams = async (req, res, next) => {
   }
 };
 
-import { Exam } from "../models/Exam.js";
-import { ExamSchedule } from "../models/ExamSchedule.js";
-
 // 1. Create Exam
 export const createExam = async (req, res, next) => {
   try {
@@ -41,10 +38,11 @@ export const createExam = async (req, res, next) => {
       return res.status(403).json({ error: "Only admins can create exams" });
     }
 
-    const { name, academicYear, examType, startDate, endDate, description } = req.body;
-    
+    const { name, academicYear, examType, startDate, endDate, description } =
+      req.body;
+
     if (!name || !academicYear || !examType || !startDate || !endDate) {
-        handleValidationError("Please fill out all fields!", 400);
+      handleValidationError("Please fill out all fields!", 400);
     }
 
     const exam = await Exam.create({
@@ -54,7 +52,7 @@ export const createExam = async (req, res, next) => {
       startDate,
       endDate,
       description,
-      admin: req.user.id
+      admin: req.user.id,
     });
 
     res.status(201).json({ success: true, message: "Exam created", exam });
@@ -67,13 +65,26 @@ export const createExam = async (req, res, next) => {
 export const createExamSchedule = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can create exam schedules" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can create exam schedules" });
     }
 
-    const { exam, classId, subject, date, startTime, endTime, room, maxMarks, invigilator, instructions } = req.body;
+    const {
+      exam,
+      classId,
+      subject,
+      date,
+      startTime,
+      endTime,
+      room,
+      maxMarks,
+      invigilator,
+      instructions,
+    } = req.body;
 
     if (!exam || !classId || !subject || !date || !startTime || !endTime) {
-        handleValidationError("Please fill out all fields!", 400);
+      handleValidationError("Please fill out all fields!", 400);
     }
 
     const schedule = await ExamSchedule.create({
@@ -87,10 +98,12 @@ export const createExamSchedule = async (req, res, next) => {
       maxMarks,
       invigilator,
       instructions,
-      admin: req.user.id
+      admin: req.user.id,
     });
 
-    res.status(201).json({ success: true, message: "Exam schedule created", schedule });
+    res
+      .status(201)
+      .json({ success: true, message: "Exam schedule created", schedule });
   } catch (err) {
     next(err);
   }
@@ -155,8 +168,8 @@ const isTeacherAvailable = async (teacherId, date, startTime, endTime) => {
     date,
     $or: [
       { startTime: { $lt: endTime, $gte: startTime } },
-      { endTime: { $gt: startTime, $lte: endTime } }
-    ]
+      { endTime: { $gt: startTime, $lte: endTime } },
+    ],
   });
   return !conflict;
 };
@@ -165,7 +178,9 @@ const isTeacherAvailable = async (teacherId, date, startTime, endTime) => {
 export const autoScheduleExam = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can auto-schedule exams" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can auto-schedule exams" });
     }
 
     const { examId, workingDays, dailySlots } = req.body;
@@ -181,14 +196,22 @@ export const autoScheduleExam = async (req, res, next) => {
     let skipped = [];
 
     for (const classObj of classes) {
-      const subjects = await Subject.find({ classId: classObj._id, admin: req.user.id }).populate("teacher");
+      const subjects = await Subject.find({
+        classId: classObj._id,
+        admin: req.user.id,
+      }).populate("teacher");
 
       for (const subject of subjects) {
         let scheduled = false;
 
         for (const day of workingDays) {
           for (const slot of dailySlots) {
-            const available = await isTeacherAvailable(subject.teacher._id, day, slot.start, slot.end);
+            const available = await isTeacherAvailable(
+              subject.teacher._id,
+              day,
+              slot.start,
+              slot.end
+            );
             if (available) {
               const schedule = await ExamSchedule.create({
                 exam: examId,
@@ -199,7 +222,7 @@ export const autoScheduleExam = async (req, res, next) => {
                 endTime: slot.end,
                 maxMarks: 100,
                 invigilator: subject.teacher._id,
-                admin: req.user.id
+                admin: req.user.id,
               });
 
               assigned.push({
@@ -208,7 +231,7 @@ export const autoScheduleExam = async (req, res, next) => {
                 teacher: subject.teacher.name,
                 date: day,
                 start: slot.start,
-                end: slot.end
+                end: slot.end,
               });
 
               scheduled = true;
@@ -223,7 +246,7 @@ export const autoScheduleExam = async (req, res, next) => {
             class: classObj.grade,
             subject: subject.name,
             teacher: subject.teacher.name,
-            reason: "No available slot without conflict"
+            reason: "No available slot without conflict",
           });
         }
       }
@@ -235,9 +258,8 @@ export const autoScheduleExam = async (req, res, next) => {
       assignedCount: assigned.length,
       skippedCount: skipped.length,
       assigned,
-      skipped
+      skipped,
     });
-
   } catch (err) {
     next(err);
   }

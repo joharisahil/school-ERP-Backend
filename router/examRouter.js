@@ -7,7 +7,7 @@ import {
   getAllScheduledExams,
   autoScheduleExam
 } from "../controllers/examController.js";
-import { verifyToken } from "../middlewares/auth.js";
+import { verifyToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
