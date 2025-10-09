@@ -3,21 +3,33 @@ import mongoose from "mongoose";
 const examSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
   },
-  registrationNumber: {
+  academicYear: {
+    type: String, // e.g. "2024-25"
+    required: true,
+  },
+  examType: {
     type: String,
-    required: true
+    enum: ["midterm", "final", "quarterly", "unit test"],
+    required: true,
   },
-  className: {
+  startDate: {
+    type: Date,
+    required: true,
+  },
+  endDate: {
+    type: Date,
+    required: true,
+  },
+  description: {
     type: String,
-    required: true
   },
-  marks: {
-    type: Number,
-    required: true
-  }
-});
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User", // admin user
+    required: true,
+  },
+}, { timestamps: true });
 
-export const Exam = mongoose.model('Exam', examSchema);
-
+export const Exam = mongoose.model("Exam", examSchema);
