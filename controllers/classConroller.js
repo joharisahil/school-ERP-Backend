@@ -7,28 +7,28 @@ import csv from "csv-parser";
 import bcrypt from "bcryptjs";
 import { paginateQuery } from "../utils/paginate.js";
 
-export const createClass = async (req, res, next) => {
-  try {
-     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can register students" });
-    }
-    const { grade, section } = req.body;
+// export const createClass = async (req, res, next) => {
+//   try {
+//      if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can register students" });
+//     }
+//     const { grade, section } = req.body;
 
-    if (!grade || !section) {
-      return res.status(400).json({ success: false, message: "Please provide grade and section" });
-    }
+//     if (!grade || !section) {
+//       return res.status(400).json({ success: false, message: "Please provide grade and section" });
+//     }
 
-    const newClass = await Class.create({ grade, section });
+//     const newClass = await Class.create({ grade, section });
 
-    res.status(201).json({
-      success: true,
-      message: "Class Created!",
-      class: newClass,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+//     res.status(201).json({
+//       success: true,
+//       message: "Class Created!",
+//       class: newClass,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 
 // export const getAllClasses = async (req, res, next) => {
@@ -42,19 +42,103 @@ export const createClass = async (req, res, next) => {
 //     next(err);
 //   }
 // };
- 
+export const createClass = async (req, res, next) => {
+  try {
+    // ✅ Ensure only admins can create a class
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create classes" });
+    }
+
+    const { grade, section } = req.body;
+
+    // ✅ Validate inputs
+    if (!grade || !section) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide both grade and section",
+      });
+    }
+
+    // ✅ Attach the admin ID from the logged-in user
+    const adminId = req.user.id;
+
+    // ✅ Prevent duplicate classes for the same admin
+    const existingClass = await Class.findOne({ admin: adminId, grade, section });
+    if (existingClass) {
+      return res.status(400).json({
+        success: false,
+        message: "This grade and section already exist for your account",
+      });
+    }
+
+    // ✅ Create class under this admin
+    const newClass = await Class.create({
+      admin: adminId,
+      grade,
+      section,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Class created successfully",
+      class: newClass,
+    });
+  } catch (err) {
+    // Handle duplicate index error cleanly
+    if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate class detected. Grade & section must be unique per admin.",
+      });
+    }
+
+    next(err);
+  }
+};
+
+// export const getAllClasses = async (req, res, next) => {
+//   try {
+//      if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can register students" });
+//     }
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const { results: classes, pagination } = await paginateQuery(
+//       Class,
+//       {},
+//       [], // no populate here, unless you want to add teachers/students later
+//       page,
+//       limit
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       classes,
+//       pagination,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
 export const getAllClasses = async (req, res, next) => {
   try {
-     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can register students" });
+    // ✅ Only admins can view their classes
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view classes" });
     }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
+    const adminId = req.user.id; // logged-in admin's ID
+
+    // ✅ Fetch only classes created by this admin
     const { results: classes, pagination } = await paginateQuery(
       Class,
-      {},
-      [], // no populate here, unless you want to add teachers/students later
+      { admin: adminId }, // <--- FILTER ADDED HERE ✅
+      [], // no populate for now
       page,
       limit
     );
