@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 
 const classSchema = new mongoose.Schema({
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User", // assuming your admin is stored in the User collection
+    required: true,
+  },
   grade: {
     type: String,
     required: true,
