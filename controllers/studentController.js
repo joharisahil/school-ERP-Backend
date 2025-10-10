@@ -148,7 +148,7 @@ export const getAllStudents = async (req, res, next) => {
 
     const { results: students, pagination } = await paginateQuery(
       Student,
-      { admin: req.user._id },
+      { admin: req.user.id },
       [{ path: "classId" }],
       page,
       limit
