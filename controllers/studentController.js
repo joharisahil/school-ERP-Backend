@@ -96,7 +96,7 @@ export const createStudent = async (req, res) => {
     if (error.code === 11000) {
       return res
         .status(400)
-        .json({ error: "This email/phone already exists for this school" });
+        .json({ error: "Student with this email or registration number already exists under your account" });
     }
     res.status(500).json({ error: error.message });
   }
@@ -148,7 +148,7 @@ export const getAllStudents = async (req, res, next) => {
 
     const { results: students, pagination } = await paginateQuery(
       Student,
-      {},
+      { admin: req.user._id },
       [{ path: "classId" }],
       page,
       limit
