@@ -121,7 +121,7 @@ export const getAllTeachers = async (req, res, next) => {
 
     const { results: teachers, pagination } = await paginateQuery(
       Teacher,
-      {},
+      {admin: req.user.id},
       [],
       page,
       limit
