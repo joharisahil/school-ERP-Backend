@@ -1,4 +1,4 @@
-import {  Class } from "../models/classSchema.js";
+import { Class } from "../models/classSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 import { Student } from "../models/studentSchema.js";
 import { User } from "../models/userRegisterSchema.js";
@@ -30,14 +30,13 @@ import { paginateQuery } from "../utils/paginate.js";
 //   }
 // };
 
-
 // export const getAllClasses = async (req, res, next) => {
 //   try {
 //   const classes = await Class.find();
 //   res.status(200).json({
 //     success: true,
 //     classes,
-//   });  
+//   });
 //   } catch (err) {
 //     next(err);
 //   }
@@ -63,7 +62,11 @@ export const createClass = async (req, res, next) => {
     const adminId = req.user.id;
 
     // ✅ Prevent duplicate classes for the same admin
-    const existingClass = await Class.findOne({ admin: adminId, grade, section });
+    const existingClass = await Class.findOne({
+      admin: adminId,
+      grade,
+      section,
+    });
     if (existingClass) {
       return res.status(400).json({
         success: false,
@@ -88,7 +91,8 @@ export const createClass = async (req, res, next) => {
     if (err.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: "Duplicate class detected. Grade & section must be unique per admin.",
+        message:
+          "Duplicate class detected. Grade & section must be unique per admin.",
       });
     }
 
@@ -155,13 +159,18 @@ export const getAllClasses = async (req, res, next) => {
 
 export const assignStudentToClass = async (req, res, next) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create classes" });
+    }
     const { studentId, classId } = req.body;
 
     const student = await Student.findById(studentId);
     const classObj = await Class.findById(classId);
 
     if (!student || !classObj) {
-      return res.status(404).json({ success: false, message: "Student or Class not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Student or Class not found" });
     }
 
     // If student is already assigned to a class, prevent reassignment
@@ -201,11 +210,16 @@ export const assignStudentToClass = async (req, res, next) => {
 
 export const bulkAssignStudents = async (req, res, next) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create classes" });
+    }
     const { studentIds, classId } = req.body;
 
     const classObj = await Class.findById(classId).populate("students", "name");
     if (!classObj) {
-      return res.status(404).json({ success: false, message: "Class not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Class not found" });
     }
 
     // 1. Fetch all students
@@ -249,7 +263,10 @@ export const bulkAssignStudents = async (req, res, next) => {
 
       const newStudentIds = eligibleStudents.map((s) => s._id.toString());
       classObj.students = [
-        ...new Set([...classObj.students.map((id) => id.toString()), ...newStudentIds]),
+        ...new Set([
+          ...classObj.students.map((id) => id.toString()),
+          ...newStudentIds,
+        ]),
       ];
       await classObj.save();
     }
@@ -268,10 +285,15 @@ export const bulkAssignStudents = async (req, res, next) => {
 
 export const uploadCSV = async (req, res, next) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create classes" });
+    }
     const { classId } = req.body;
     const classObj = await Class.findById(classId);
     if (!classObj) {
-      return res.status(404).json({ success: false, message: "Class not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Class not found" });
     }
 
     const students = [];
@@ -287,7 +309,9 @@ export const uploadCSV = async (req, res, next) => {
         for (const studentData of students) {
           try {
             // Check if User already exists for this email
-            const existingUser = await User.findOne({ email: studentData.email });
+            const existingUser = await User.findOne({
+              email: studentData.email,
+            });
             if (existingUser) {
               skipped.push({
                 name: studentData.name,
@@ -319,7 +343,6 @@ export const uploadCSV = async (req, res, next) => {
             // Add student to class
             classObj.students.push(newStudent._id);
             assigned.push({ name: newStudent.name, email: newStudent.email });
-
           } catch (err) {
             skipped.push({
               name: studentData.name,
@@ -344,4 +367,3 @@ export const uploadCSV = async (req, res, next) => {
     next(err);
   }
 };
-

@@ -3,23 +3,21 @@ import { User } from "../models/userRegisterSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 import { paginateQuery } from "../utils/paginate.js";
 
-
-
-const generateRegistrationNumber=()=>{
+const generateRegistrationNumber = () => {
   const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(100 + Math.random()*900);
+  const random = Math.floor(100 + Math.random() * 900);
   return `REG-${timestamp}${random}`;
-}
-
-
+};
 
 export const createStudent = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can register students" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can register students" });
     }
     // console.log("Step1");
-    
+
     const {
       firstName,
       lastName,
@@ -27,8 +25,8 @@ export const createStudent = async (req, res) => {
       phone,
       dob,
       address,
-      contactEmail,   // parent/guardian email
-      contactName,    // parent/guardian name
+      contactEmail, // parent/guardian email
+      contactName, // parent/guardian name
       contactPhone,
       relation,
       fatherName,
@@ -95,17 +93,14 @@ export const createStudent = async (req, res) => {
       },
     });
   } catch (error) {
-        if (error.code === 11000) {
-      return res.status(400).json({ error: "This email/phone already exists for this school" });
+    if (error.code === 11000) {
+      return res
+        .status(400)
+        .json({ error: "This email/phone already exists for this school" });
     }
-    res.status(500).json({ error: error.message  });
-       
+    res.status(500).json({ error: error.message });
   }
-  
 };
-
-
-
 
 // export const getAllStudents = async (req, res, next) => {
 //   try {
@@ -142,6 +137,12 @@ export const createStudent = async (req, res) => {
 
 export const getAllStudents = async (req, res, next) => {
   try {
+    if (req.user.role !== "admin") {
+      return res
+        .status(403)
+        .json({ error: "Only admins can register students" });
+    }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -165,6 +166,12 @@ export const getAllStudents = async (req, res, next) => {
 
 export const updateStudent = async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res
+        .status(403)
+        .json({ error: "Only admins can register students" });
+    }
+
     const { id } = req.params; // studentId from URL
     const updates = req.body;
 
@@ -175,7 +182,9 @@ export const updateStudent = async (req, res) => {
         _id: { $ne: id },
       });
       if (exists) {
-        return res.status(400).json({ error: "Registration number already in use" });
+        return res
+          .status(400)
+          .json({ error: "Registration number already in use" });
       }
     }
 
@@ -187,13 +196,15 @@ export const updateStudent = async (req, res) => {
         _id: { $ne: id },
       });
       if (exists) {
-        return res.status(400).json({ error: "Email already in use under this admin" });
+        return res
+          .status(400)
+          .json({ error: "Email already in use under this admin" });
       }
     }
 
     const student = await Student.findByIdAndUpdate(id, updates, {
-      new: true,          // return updated document
-      runValidators: true // apply schema validation
+      new: true, // return updated document
+      runValidators: true, // apply schema validation
     });
 
     if (!student) {

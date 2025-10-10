@@ -8,9 +8,9 @@ const router = express.Router();
 
 router.get('/getall',verifyToken, getAllClasses);
 router.post("/create", verifyToken, createClass);
-router.post("/assign/student",  assignStudentToClass);
-router.post("/assign/student/bulk",  bulkAssignStudents);
-router.post("/upload-csv",  upload.single("file"), uploadCSV);
+router.post("/assign/student",verifyToken,  assignStudentToClass);
+router.post("/assign/student/bulk",verifyToken,  bulkAssignStudents);
+router.post("/upload-csv",  upload.single("file"), verifyToken, uploadCSV);
 
 
 export default router;

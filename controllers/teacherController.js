@@ -113,6 +113,9 @@ export const createTeacher = async (req, res) => {
 
 export const getAllTeachers = async (req, res, next) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can register teachers" });
+    }
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -139,6 +142,11 @@ export const getAllTeachers = async (req, res, next) => {
 // =========================
 export const updateTeacher = async (req, res) => {
   try {
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can register teachers" });
+    }
+    
     const { id } = req.params; // teacherId from URL
     const updates = req.body;
 
