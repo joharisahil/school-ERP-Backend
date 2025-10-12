@@ -26,5 +26,8 @@ const periodSchema = new mongoose.Schema({
 
 periodSchema.index({ day: 1, periodNumber: 1, teacherId: 1 }, { unique: true });
 // ensures no teacher conflict in same period
+periodSchema.index({ day: 1, periodNumber: 1, classId: 1 }, { unique: true });
+// prevents same class having more than one period at same time
+
 
 export const Period = mongoose.model("Period", periodSchema);

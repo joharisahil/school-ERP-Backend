@@ -20,7 +20,7 @@ export const createPeriod = async (req, res, next) => {
     }
 
     // ensure teacher is assigned subject
-    if (subject.teacher?.toString() !== teacherId) {
+    if (!subject.teachers?.some(t => t.toString() === teacherId)) {
       return res.status(400).json({ error: "This teacher is not assigned to this subject" });
     }
 
@@ -53,10 +53,18 @@ export const autoGenerateTimetable = async (req, res, next) => {
     for (const day of days) {
       for (let p = 1; p <= periodsPerDay; p++) {
         const subject = subjects[periodCounter % subjects.length];
-        if (!subject.teacher) continue;
+        if (!subject.teachers) continue;
 
         // avoid teacher conflict
-        const conflict = await Period.findOne({ day, periodNumber: p, teacherId: subject.teacher._id });
+       const conflict = await Period.findOne({
+       day,
+       periodNumber: p,
+       $or: [
+       { teacherId: subject.teachers._id },
+       { classId }
+      ]
+      });
+
         if (conflict) continue;
 
         const period = await Period.create({
@@ -64,7 +72,7 @@ export const autoGenerateTimetable = async (req, res, next) => {
           periodNumber: p,
           classId,
           subjectId: subject._id,
-          teacherId: subject.teacher._id,
+          teacherId: subject.teachers._id,
         });
 
         createdPeriods.push(period);
