@@ -3,31 +3,67 @@ import { Teacher } from "../models/teacherSchema.js";
 import { Class } from "../models/classSchema.js";
 import { paginateQuery } from "../utils/paginate.js";
 
-//  Create a Subject
-export const createSubject = async (req, res, next) => {
+export const createSubject = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can create subjects" });
     }
 
-    const { name, code } = req.body;
-    
-    // Only check for name
-    if (!name) {
-      return res.status(400).json({ success: false, message: "Name is required" });
+    const { name, code, classIds, teacherIds } = req.body; // classIds is now an array
+
+    if (!name || !classIds || classIds.length === 0) {
+      return res.status(400).json({ error: "Name and at least one class are required" });
     }
 
-    const subject = await Subject.create({
-      name,
-      code: code || null, // optional, default to null if not provided
+    // Validate all class IDs belong to this admin
+    const validClasses = await Class.find({
+      _id: { $in: classIds },
       admin: req.user.id,
     });
+    if (validClasses.length !== classIds.length) {
+      return res.status(400).json({ error: "Some classes not found under your account" });
+    }
 
-    res.status(201).json({ success: true, message: "Subject created", subject });
-  } catch (err) {
-    next(err);
+    // Validate all teachers
+    let validTeacherIds = [];
+    if (teacherIds && teacherIds.length > 0) {
+      const teachers = await Teacher.find({
+        _id: { $in: teacherIds },
+        admin: req.user.id,
+      });
+      if (teachers.length !== teacherIds.length) {
+        return res.status(400).json({ error: "Some teachers not found under your account" });
+      }
+      validTeacherIds = teachers.map(t => t._id);
+    }
+
+    // Check for duplicate code under the same admin
+    const existingSubject = await Subject.findOne({ admin: req.user.id, code });
+    if (existingSubject) {
+      return res.status(400).json({ error: "Subject code already exists under your account" });
+    }
+
+    // Create subject
+    const subject = await Subject.create({
+      name,
+      code,
+      admin: req.user.id,
+      classes: classIds, // ✅ multiple classes supported now
+      teachers: validTeacherIds,
+    });
+
+    res.status(201).json({
+      message: "Subject created successfully",
+      subject,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Duplicate subject code under this admin" });
+    }
+    res.status(500).json({ error: error.message });
   }
 };
+
 
 //  Assign Subject to Teacher
 // export const assignSubjectToTeacher = async (req, res, next) => {
