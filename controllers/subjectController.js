@@ -208,7 +208,7 @@ export const getAllSubjects = async (req, res, next) => {
       Subject,
       { admin: req.user.id },
       [
-        { path: "teachers", select: "name email" },
+        { path: "teachers", select: "firstName lastName email" },
         { path: "classes", select: "grade section" },
       ],
       page,
