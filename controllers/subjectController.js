@@ -64,6 +64,83 @@ export const createSubject = async (req, res) => {
   }
 };
 
+export const updateSubject = async (req, res, next) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can update subjects" });
+    }
+
+    const { subjectId } = req.params;
+    const { name, code, classId, teacherIds } = req.body;
+
+    // Find subject and ensure it belongs to this admin
+    const subject = await Subject.findOne({ _id: subjectId, admin: req.user.id });
+    if (!subject) {
+      return res.status(404).json({ error: "Subject not found or not under your account" });
+    }
+
+    // ✅ Validate class (if provided)
+    if (classId) {
+      const validClass = await Class.findOne({
+        _id: classId,
+        admin: req.user.id,
+      });
+      if (!validClass) {
+        return res.status(400).json({ error: "Invalid class selected" });
+      }
+      subject.classes = [classId]; // replace with new single class
+    }
+
+    // ✅ Validate teachers (if provided)
+    if (teacherIds && teacherIds.length > 0) {
+      const validTeachers = await Teacher.find({
+        _id: { $in: teacherIds },
+        admin: req.user.id,
+      });
+
+      if (validTeachers.length !== teacherIds.length) {
+        return res
+          .status(400)
+          .json({ error: "Some teachers not found under your account" });
+      }
+
+      subject.teachers = validTeachers.map((t) => t._id);
+    } else if (teacherIds && teacherIds.length === 0) {
+      // If teacherIds is an empty array, clear all teachers
+      subject.teachers = [];
+    }
+
+    // ✅ Check duplicate code (if updating code)
+    if (code && code !== subject.code) {
+      const existing = await Subject.findOne({ code, admin: req.user.id });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ error: "Subject code already exists under your account" });
+      }
+      subject.code = code;
+    }
+
+    // ✅ Update name if provided
+    if (name) subject.name = name;
+
+    await subject.save();
+
+    // ✅ Populate for response
+    const updatedSubject = await Subject.findById(subject._id)
+      .populate("teachers", "firstName lastName email")
+      .populate("classes", "grade section");
+
+    res.status(200).json({
+      success: true,
+      message: "Subject updated successfully",
+      subject: updatedSubject,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 //  Assign Subject to Teacher
 // export const assignSubjectToTeacher = async (req, res, next) => {

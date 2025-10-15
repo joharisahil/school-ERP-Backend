@@ -7,6 +7,7 @@ import {
   deleteSubject,
   assignSubjectToClass,
   toggleSubjectTeacherAssignment,
+  updateSubject,
 } from "../controllers/subjectController.js";
 import { verifyToken } from "../middlewares/authMiddleware.js";
 
@@ -19,6 +20,7 @@ router.post(
   verifyToken,
   toggleSubjectTeacherAssignment
 );
+router.put("/update/:subjectId", verifyToken, updateSubject);
 router.post("/assign/class", verifyToken, assignSubjectToClass);
 router.get("/all", verifyToken, getAllSubjects);
 router.get("/teacher/:teacherId", verifyToken, getSubjectsByTeacher);
