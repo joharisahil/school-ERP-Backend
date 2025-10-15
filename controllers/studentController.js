@@ -2,6 +2,8 @@ import { Student } from "../models/studentSchema.js";
 import { User } from "../models/userRegisterSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 import { paginateQuery } from "../utils/paginate.js";
+import { Class } from "../models/classSchema.js"; // adjust the path if needed
+
 
 const generateRegistrationNumber = () => {
   const timestamp = Date.now().toString().slice(-6);
@@ -16,7 +18,6 @@ export const createStudent = async (req, res) => {
         .status(403)
         .json({ error: "Only admins can register students" });
     }
-    // console.log("Step1");
 
     const {
       firstName,
@@ -25,8 +26,8 @@ export const createStudent = async (req, res) => {
       phone,
       dob,
       address,
-      contactEmail, // parent/guardian email
-      contactName, // parent/guardian name
+      contactEmail,
+      contactName,
       contactPhone,
       relation,
       fatherName,
@@ -40,7 +41,6 @@ export const createStudent = async (req, res) => {
       classId,
     } = req.body;
 
-    // Default password for all students
     const defaultPassword = "student@123";
 
     // Create login account for student
@@ -84,6 +84,11 @@ export const createStudent = async (req, res) => {
       motherOccupation,
     });
 
+    // ✅ Add student to Class
+    await Class.findByIdAndUpdate(classId, {
+      $push: { students: student._id },
+    });
+
     res.status(201).json({
       message: "Student registered successfully",
       student,
@@ -94,13 +99,15 @@ export const createStudent = async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ error: "Student with this email or registration number already exists under your account" });
+      return res.status(400).json({
+        error:
+          "Student with this email or registration number already exists under your account",
+      });
     }
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // export const getAllStudents = async (req, res, next) => {
 //   try {
