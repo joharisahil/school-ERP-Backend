@@ -1,9 +1,9 @@
 import { Student } from "../models/studentSchema.js";
 import { User } from "../models/userRegisterSchema.js";
-import { handleValidationError } from "../middlewares/errorHandler.js";
 import { paginateQuery } from "../utils/paginate.js";
 import { Class } from "../models/classSchema.js"; // adjust the path if needed
 
+import { StudentFee } from "../models/studentFeeSchema.js";
 
 const generateRegistrationNumber = () => {
   const timestamp = Date.now().toString().slice(-6);
@@ -109,39 +109,6 @@ export const createStudent = async (req, res) => {
 };
 
 
-// export const getAllStudents = async (req, res, next) => {
-//   try {
-//     // Default values: page=1, limit=10
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     // Calculate how many records to skip
-//     const skip = (page - 1) * limit;
-
-//     // Fetch students with pagination
-//     const students = await Student.find()
-//       .populate("classId")
-//       .skip(skip)
-//       .limit(limit);
-
-//     // Count total students (for totalPages calculation)
-//     const totalStudents = await Student.countDocuments();
-
-//     res.status(200).json({
-//       success: true,
-//       students,
-//       pagination: {
-//         totalStudents,
-//         currentPage: page,
-//         totalPages: Math.ceil(totalStudents / limit),
-//         limit,
-//       },
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
 export const getAllStudents = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
@@ -222,5 +189,54 @@ export const updateStudent = async (req, res) => {
   } catch (error) {
     console.error("Error updating student:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const deleteStudent = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Only admins can delete students
+    if (req.user.role !== "admin") {
+      await session.abortTransaction();
+      return res.status(403).json({ error: "Only admins can delete students" });
+    }
+
+    const { id } = req.params;
+
+    // 1️⃣ Find the student
+    const student = await Student.findById(id).session(session);
+    if (!student) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    // 2️⃣ Remove student reference from class
+    if (student.classId) {
+      await Class.updateOne(
+        { _id: student.classId },
+        { $pull: { students: student._id } },
+        { session }
+      );
+    }
+
+    // 3️⃣ Delete all related fee records
+    await StudentFee.deleteMany({ studentId: id }).session(session);
+
+    // 4️⃣ Delete the student itself
+    await Student.findByIdAndDelete(id).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      message: "✅ Student and all related records deleted successfully",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("❌ Error deleting student:", error);
+    return res.status(500).json({ error: "Server error while deleting student" });
   }
 };

@@ -1,7 +1,6 @@
 import { User } from "../models/userRegisterSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
-import { Teacher } from "../models/teacherSchema.js";
-import { Student } from "../models/studentSchema.js";
+
 
 export const adminRegister = async (req, res, next) => {
   console.log(req.body);
