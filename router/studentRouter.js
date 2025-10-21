@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/getall', verifyToken, getAllStudents);
 router.post('/create', verifyToken, createStudent);
 router.put("/:id", verifyToken,  updateStudent);
-router.delete("delete/:id", verifyToken, deleteStudent);
+router.delete("/delete/:id", verifyToken, deleteStudent);
 export default router;
 
 
