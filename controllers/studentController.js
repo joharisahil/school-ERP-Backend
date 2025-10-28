@@ -274,6 +274,7 @@ export const deleteStudent = async (req, res) => {
     // Only admins can delete students
     if (req.user.role !== "admin") {
       await session.abortTransaction();
+      session.endSession();
       return res.status(403).json({ error: "Only admins can delete students" });
     }
 
@@ -283,6 +284,7 @@ export const deleteStudent = async (req, res) => {
     const student = await Student.findById(id).session(session);
     if (!student) {
       await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ error: "Student not found" });
     }
 
@@ -296,10 +298,10 @@ export const deleteStudent = async (req, res) => {
     }
 
     // 3️⃣ Delete all related fee records
-    await StudentFee.deleteMany({ studentId: id }).session(session);
+    await StudentFee.deleteMany({ studentId: id }, { session });
 
     // 4️⃣ Delete the student itself
-    await Student.findByIdAndDelete(id).session(session);
+    await Student.findByIdAndDelete(id, { session });
 
     await session.commitTransaction();
     session.endSession();
@@ -316,3 +318,4 @@ export const deleteStudent = async (req, res) => {
       .json({ error: "Server error while deleting student" });
   }
 };
+
