@@ -2,7 +2,7 @@ import { Student } from "../models/studentSchema.js";
 import { User } from "../models/userRegisterSchema.js";
 import { paginateQuery } from "../utils/paginate.js";
 import { Class } from "../models/classSchema.js"; // adjust the path if needed
-
+import mongoose from "mongoose";
 import { StudentFee } from "../models/studentFeeSchema.js";
 
 const generateRegistrationNumber = () => {
@@ -107,35 +107,6 @@ export const createStudent = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-// export const getAllStudents = async (req, res, next) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       return res
-//         .status(403)
-//         .json({ error: "Only admins can register students" });
-//     }
-
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const { results: students, pagination } = await paginateQuery(
-//       Student,
-//       { admin: req.user.id },
-//       [{ path: "classId" }],
-//       page,
-//       limit
-//     );
-
-//     res.status(200).json({
-//       success: true,
-//       students,
-//       pagination,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 
 export const getAllStudents = async (req, res, next) => {
   try {
@@ -318,4 +289,3 @@ export const deleteStudent = async (req, res) => {
       .json({ error: "Server error while deleting student" });
   }
 };
-
