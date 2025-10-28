@@ -1,7 +1,6 @@
 // models/feeStructure.model.js
 import mongoose from "mongoose";
 
-
 const monthDetailSchema = new mongoose.Schema(
   {
     month: { type: String, required: true },
@@ -12,7 +11,6 @@ const monthDetailSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
 
 const feeStructureSchema = new mongoose.Schema(
   {
@@ -31,14 +29,25 @@ const feeStructureSchema = new mongoose.Schema(
       required: true,
     },
     totalAmount: { type: Number, required: true, min: 0 },
-    status: { type: String, enum: ["Draft", "Published"], default: "Published" },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    status: {
+      type: String,
+      enum: ["Draft", "Published"],
+      default: "Published",
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true }
 );
 
 // Ensure unique FeeStructure per class + session
-feeStructureSchema.index({ classId: 1, session: 1 }, { unique: true });
+feeStructureSchema.index(
+  { admin: 1, classId: 1, session: 1 },
+  { unique: true }
+);
 
 // Auto-calculate totalAmount
 feeStructureSchema.pre("validate", function (next) {

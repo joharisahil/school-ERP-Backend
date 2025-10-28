@@ -5,7 +5,9 @@ import { Class } from "../models/classSchema.js";
 export const createAndAssignFeeStructure = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can create fee structures" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can create fee structures" });
     }
 
     const { classIds, session, monthDetails } = req.body;
@@ -26,7 +28,10 @@ export const createAndAssignFeeStructure = async (req, res) => {
       if (exists) continue;
 
       // Create new fee structure
-      const totalStructureAmount = monthDetails.reduce((sum, m) => sum + m.amount, 0);
+      const totalStructureAmount = monthDetails.reduce(
+        (sum, m) => sum + m.amount,
+        0
+      );
       const feeStructure = await FeeStructure.create({
         classId,
         session,
@@ -50,7 +55,10 @@ export const createAndAssignFeeStructure = async (req, res) => {
           amountPaid: 0,
         }));
 
-        const totalAmount = installments.reduce((sum, inst) => sum + inst.amount, 0);
+        const totalAmount = installments.reduce(
+          (sum, inst) => sum + inst.amount,
+          0
+        );
 
         return {
           studentId: student._id,
@@ -85,10 +93,11 @@ export const createAndAssignFeeStructure = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating fee structure:", error);
-    res.status(500).json({ error: "Server error while creating fee structures" });
+    res
+      .status(500)
+      .json({ error: "Server error while creating fee structures" });
   }
 };
-
 
 //
 // 3. Collect Fee (Admin only)
@@ -110,7 +119,9 @@ export const collectFee = async (req, res) => {
 
     // Basic validation
     if (!amount || !mode || !month) {
-      return res.status(400).json({ error: "Amount, mode, and month are required" });
+      return res
+        .status(400)
+        .json({ error: "Amount, mode, and month are required" });
     }
 
     let feeRecord;
@@ -123,33 +134,41 @@ export const collectFee = async (req, res) => {
       feeRecord = await StudentFee.findOne({ studentId: student._id })
         .populate("studentId", "firstName lastName registrationNumber classId")
         .populate("classId", "grade section");
-      if (!feeRecord) return res.status(404).json({ error: "Fee record not found for this student" });
-
+      if (!feeRecord)
+        return res
+          .status(404)
+          .json({ error: "Fee record not found for this student" });
     } else {
       // 🔹 Otherwise fetch by studentFeeId
       feeRecord = await StudentFee.findById(studentFeeId)
         .populate("studentId", "firstName lastName registrationNumber classId")
         .populate("classId", "grade section");
-      if (!feeRecord) return res.status(404).json({ error: "Student fee record not found" });
+      if (!feeRecord)
+        return res.status(404).json({ error: "Student fee record not found" });
     }
 
     // Find installment
     const installment = feeRecord.installments.find((i) => i.month === month);
-    if (!installment) return res.status(400).json({ error: `Installment for ${month} not found` });
+    if (!installment)
+      return res
+        .status(400)
+        .json({ error: `Installment for ${month} not found` });
 
     // Warn if month differs from current
     const currentMonth = new Date().toLocaleString("en-US", { month: "long" });
-    const warning = currentMonth !== month
-      ? `Payment month differs from current month (current: ${currentMonth}, requested: ${month})`
-      : null;
+    const warning =
+      currentMonth !== month
+        ? `Payment month differs from current month (current: ${currentMonth}, requested: ${month})`
+        : null;
 
     // Update installment & totals
     installment.amountPaid += amount;
-    installment.status = installment.amountPaid >= installment.amount
-      ? "Paid"
-      : installment.amountPaid > 0
-      ? "Partial"
-      : "Pending";
+    installment.status =
+      installment.amountPaid >= installment.amount
+        ? "Paid"
+        : installment.amountPaid > 0
+        ? "Partial"
+        : "Pending";
 
     feeRecord.totalPaid += amount;
     feeRecord.balance = Math.max(feeRecord.netPayable - feeRecord.totalPaid, 0);
@@ -165,17 +184,20 @@ export const collectFee = async (req, res) => {
       message: "Payment recorded successfully",
       warning,
       transactionId,
-      registrationNumber: feeRecord.registrationNumber || feeRecord.studentId?.registrationNumber,
-      studentName: feeRecord.studentId ? `${feeRecord.studentId.firstName} ${feeRecord.studentId.lastName || ""}`.trim() : "",
+      registrationNumber:
+        feeRecord.registrationNumber || feeRecord.studentId?.registrationNumber,
+      studentName: feeRecord.studentId
+        ? `${feeRecord.studentId.firstName} ${
+            feeRecord.studentId.lastName || ""
+          }`.trim()
+        : "",
       feeRecord,
     });
-
   } catch (error) {
     console.error("Error collecting fee:", error);
     res.status(500).json({ error: "Server error while collecting fee" });
   }
 };
-
 
 //
 // 4. Get All Fee Structures (Admin only)
@@ -369,7 +391,10 @@ export const getStudentFeeByRegNo = async (req, res) => {
     const { registrationNumber } = req.params;
 
     // 1️⃣ Find the student using registration number
-    const student = await Student.findOne({ registrationNumber }).populate("classId", "grade section");
+    const student = await Student.findOne({ registrationNumber }).populate(
+      "classId",
+      "grade section"
+    );
 
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
@@ -377,15 +402,20 @@ export const getStudentFeeByRegNo = async (req, res) => {
 
     // 2️⃣ Authorization check
     if (req.user.role !== "admin" && req.user.id !== student._id.toString()) {
-      return res.status(403).json({ error: "Unauthorized to view this student's fee" });
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to view this student's fee" });
     }
 
     // 3️⃣ Fetch student fees
-    const studentFees = await StudentFee.find({ studentId: student._id })
-      .populate("structureId", "session totalAmount amountPerInstallment");
+    const studentFees = await StudentFee.find({
+      studentId: student._id,
+    }).populate("structureId", "session totalAmount amountPerInstallment");
 
     if (!studentFees.length) {
-      return res.status(404).json({ error: "No fee record found for this student" });
+      return res
+        .status(404)
+        .json({ error: "No fee record found for this student" });
     }
 
     // 4️⃣ Format the response
@@ -436,12 +466,13 @@ export const getAllStudentFees = async (req, res) => {
   }
 };
 
-
 export const applyScholarship = async (req, res) => {
   try {
     // Only admin can access
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can apply scholarships" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can apply scholarships" });
     }
 
     const { registrationNumber } = req.params;
@@ -506,7 +537,10 @@ export const applyScholarship = async (req, res) => {
     });
 
     // 6. Update netPayable & balance
-    studentFee.netPayable = studentFee.installments.reduce((acc, i) => acc + i.amount, 0);
+    studentFee.netPayable = studentFee.installments.reduce(
+      (acc, i) => acc + i.amount,
+      0
+    );
     studentFee.balance = studentFee.netPayable - studentFee.totalPaid;
 
     // 7. Save
@@ -516,17 +550,16 @@ export const applyScholarship = async (req, res) => {
       message: "Scholarship applied successfully",
       studentName: `${student.firstName} ${student.lastName || ""}`,
       registrationNumber: student.registrationNumber,
-      className: student.classId ? `${student.classId.grade} ${student.classId.section}` : "",
+      className: student.classId
+        ? `${student.classId.grade} ${student.classId.section}`
+        : "",
       session: studentFee.structureId?.session || "",
       studentFee,
     });
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 export const getStudentsWithScholarships = async (req, res) => {
   try {
@@ -552,13 +585,12 @@ export const getStudentsWithScholarships = async (req, res) => {
   }
 };
 
-
-
-
 export const searchFees = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can access this endpoint" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can access this endpoint" });
     }
 
     const {
@@ -566,16 +598,16 @@ export const searchFees = async (req, res) => {
       classId,
       registrationNumber,
       studentName,
-      scholarship,      // "with" | "without"
-      scholarshipType,  // "full" | "half" | "custom"
-      overdue,          // "true" | "false"
-      status,           // "Paid" | "Partial" | "Pending"
-      lateFee,          // "true" | "false"
+      scholarship, // "with" | "without"
+      scholarshipType, // "full" | "half" | "custom"
+      overdue, // "true" | "false"
+      status, // "Paid" | "Partial" | "Pending"
+      lateFee, // "true" | "false"
       session,
       minAmount,
       maxAmount,
       page = 1,
-      limit = 50
+      limit = 50,
     } = req.query;
 
     const filter = {};
@@ -587,7 +619,7 @@ export const searchFees = async (req, res) => {
       if (classId) classFilter._id = classId;
 
       const classes = await Class.find(classFilter).select("_id");
-      if (classes.length) filter.classId = { $in: classes.map(c => c._id) };
+      if (classes.length) filter.classId = { $in: classes.map((c) => c._id) };
     }
 
     // ======= Session Filter =======
@@ -624,18 +656,21 @@ export const searchFees = async (req, res) => {
 
     // ======= Scholarship Filter =======
     if (scholarship === "with") filter["scholarships.0"] = { $exists: true };
-    else if (scholarship === "without") filter["scholarships.0"] = { $exists: false };
+    else if (scholarship === "without")
+      filter["scholarships.0"] = { $exists: false };
     if (scholarshipType) filter["scholarships.type"] = scholarshipType;
 
     // ======= Student Name / Registration Number Filter =======
     if (registrationNumber || studentName) {
       const studentFilter = {};
-      if (registrationNumber) studentFilter.registrationNumber = registrationNumber;
-      if (studentName) studentFilter.firstName = { $regex: studentName, $options: "i" };
+      if (registrationNumber)
+        studentFilter.registrationNumber = registrationNumber;
+      if (studentName)
+        studentFilter.firstName = { $regex: studentName, $options: "i" };
 
       const students = await Student.find(studentFilter).select("_id");
       if (students.length) {
-        filter.studentId = { $in: students.map(s => s._id) };
+        filter.studentId = { $in: students.map((s) => s._id) };
       } else {
         // No matching students → return empty result
         return res.status(200).json({
@@ -645,7 +680,7 @@ export const searchFees = async (req, res) => {
           totalCollected: 0,
           totalPending: 0,
           totalLateFeeSubmitters: 0,
-          fees: []
+          fees: [],
         });
       }
     }
@@ -668,13 +703,13 @@ export const searchFees = async (req, res) => {
     let totalLateFeeSubmitters = 0;
     const today = new Date();
 
-    fees.forEach(fee => {
+    fees.forEach((fee) => {
       totalCollected += fee.totalPaid || 0;
       totalPending += fee.balance || 0;
 
       // Count late fee submitters
       const hasLateFee = fee.installments.some(
-        inst => inst.status === "Paid" && inst.dueDate < today
+        (inst) => inst.status === "Paid" && inst.dueDate < today
       );
       if (hasLateFee) totalLateFeeSubmitters += 1;
     });
@@ -686,12 +721,10 @@ export const searchFees = async (req, res) => {
       totalCollected,
       totalPending,
       totalLateFeeSubmitters,
-      fees
+      fees,
     });
-
   } catch (error) {
     console.error("Error searching fees:", error);
     res.status(500).json({ error: "Server error while searching fees" });
   }
 };
-

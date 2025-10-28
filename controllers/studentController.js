@@ -108,18 +108,45 @@ export const createStudent = async (req, res) => {
   }
 };
 
+// export const getAllStudents = async (req, res, next) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res
+//         .status(403)
+//         .json({ error: "Only admins can register students" });
+//     }
+
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const { results: students, pagination } = await paginateQuery(
+//       Student,
+//       { admin: req.user.id },
+//       [{ path: "classId" }],
+//       page,
+//       limit
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       students,
+//       pagination,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 export const getAllStudents = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "Only admins can register students" });
+      return res.status(403).json({ error: "Only admins can view this data" });
     }
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
+    // Fetch all students for pagination
     const { results: students, pagination } = await paginateQuery(
       Student,
       { admin: req.user.id },
@@ -128,9 +155,56 @@ export const getAllStudents = async (req, res, next) => {
       limit
     );
 
+    // Get all student IDs
+    const studentIds = students.map((s) => s._id);
+
+    // Find student fees that have scholarships for these students
+    const studentFees = await StudentFee.find({
+      studentId: { $in: studentIds },
+      "scholarships.0": { $exists: true },
+    })
+      .populate("studentId", "firstName lastName rollNo classId")
+      .populate("classId", "name")
+      .populate(
+        "structureId",
+        "session totalAmount amountPerInstallment scholarships"
+      );
+
+    // Map scholarships by studentId for quick lookup
+    const scholarshipMap = {};
+    studentFees.forEach((fee) => {
+      scholarshipMap[fee.studentId._id] = {
+        scholarships: fee.scholarships,
+        totalAmount: fee.structureId?.totalAmount || 0,
+        session: fee.structureId?.session || "N/A",
+        amountPerInstallment: fee.structureId?.amountPerInstallment || 0,
+        createdAt: fee.createdAt,
+        updatedAt: fee.updatedAt,
+      };
+    });
+
+    // Merge scholarship info into students
+    const mergedStudents = students.map((student) => ({
+      ...student.toObject(),
+      scholarshipInfo: scholarshipMap[student._id] || null,
+    }));
+
+    // Count total scholarship students
+    const totalScholarshipStudents = studentFees.length;
+    const totalStudents = await Student.countDocuments({ admin: req.user.id });
+
+    // Calculate percentage
+    const scholarshipPercentage =
+      totalStudents > 0
+        ? ((totalScholarshipStudents / totalStudents) * 100).toFixed(2)
+        : 0;
+
     res.status(200).json({
       success: true,
-      students,
+      totalStudents,
+      totalScholarshipStudents,
+      scholarshipPercentage: `${scholarshipPercentage}%`,
+      students: mergedStudents,
       pagination,
     });
   } catch (err) {
@@ -237,6 +311,8 @@ export const deleteStudent = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error("❌ Error deleting student:", error);
-    return res.status(500).json({ error: "Server error while deleting student" });
+    return res
+      .status(500)
+      .json({ error: "Server error while deleting student" });
   }
 };
