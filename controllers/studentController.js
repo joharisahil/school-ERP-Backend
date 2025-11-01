@@ -8,7 +8,7 @@ import { FeeStructure } from "../models/feeStructureSchema.js";
 
 
 const generateRegistrationNumber = () => {
-  const timestamp = Date.now().toString().slice(-6);
+  const timestamp = Date.now().toString().slice(-2);
   const random = Math.floor(100 + Math.random() * 900);
   return `REG-${timestamp}${random}`;
 };
@@ -180,7 +180,7 @@ export const createStudent = async (req, res) => {
       password: defaultPassword,
       role: "student",
     });
-    console.log("📩 Received classId:", classId);
+    
 
     // ✅ Save student record
     const student = await Student.create({
