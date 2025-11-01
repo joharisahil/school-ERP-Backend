@@ -56,14 +56,14 @@ export const autoGenerateTimetable = async (req, res, next) => {
         if (!subject.teachers) continue;
 
         // avoid teacher conflict
-       const conflict = await Period.findOne({
-       day,
-       periodNumber: p,
-       $or: [
-       { teacherId: subject.teachers._id },
-       { classId }
-      ]
-      });
+        const conflict = await Period.findOne({
+          day,
+          periodNumber: p,
+          $or: [
+            { teacherId: subject.teachers._id },
+            { classId }
+          ]
+        });
 
         if (conflict) continue;
 
@@ -92,7 +92,7 @@ export const getClassTimetable = async (req, res, next) => {
     const { classId } = req.params;
     const timetable = await Period.find({ classId })
       .populate("subjectId", "name code")
-      .populate("teacherId", "name email")
+      .populate("teacherId", "firstName lastName email")
       .sort({ day: 1, periodNumber: 1 });
 
     res.status(200).json({ success: true, timetable });
