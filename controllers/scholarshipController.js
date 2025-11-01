@@ -107,79 +107,85 @@ export const applyScholarship = async (req, res) => {
     }
 
     const { registrationNumber } = req.params;
-    const { name, type, value = 0, period, months = [] } = req.body;
+    const { name, type, value, valueType, period, months = [] } = req.body;
 
-    // ✅ Validations
-    const validTypes = ["full", "half", "custom"];
-    const validPeriods = ["yearly", "monthly", "custom"];
+    const student = await Student.findOne({ registrationNumber }).populate({
+      path: "classId",
+      select: "grade section",
+    });
 
-    if (!validTypes.includes(type)) {
-      return res.status(400).json({ error: "Invalid scholarship type" });
-    }
-
-    if (!validPeriods.includes(period)) {
-      return res.status(400).json({ error: "Invalid period" });
-    }
-
-    const student = await Student.findOne({ registrationNumber }).populate("classId", "grade section");
-    if (!student) {
+    if (!student)
       return res.status(404).json({ error: "Student not found" });
-    }
 
-    const studentFee = await StudentFee.findOne({ studentId: student._id }).populate("structureId");
-    if (!studentFee) {
+    const studentFee = await StudentFee.findOne({ studentId: student._id })
+      .populate({
+        path: "studentId",
+        select: "firstName lastName registrationNumber classId",
+        populate: { path: "classId", select: "grade section" },
+      })
+      .populate("structureId", "session totalAmount amountPerInstallment");
+
+    if (!studentFee)
       return res.status(404).json({ error: "Student fee not found" });
-    }
 
-    // ✅ Prevent duplicate scholarship names
-    const alreadyApplied = studentFee.scholarships.find(
-      (sch) => sch.name.toLowerCase() === name.toLowerCase()
-    );
-    if (alreadyApplied) {
-      return res.status(400).json({ error: "Scholarship already applied" });
-    }
-
-    // ✅ Store scholarship details
+    // ✅ Step 1: Create scholarship object
     const scholarship = {
       name,
       type,
-      value,
-      valueType: "fixed", // Always fixed
+      value: value || 0,
+      valueType: valueType || "fixed",
       period,
       months,
       appliedAt: new Date(),
     };
 
+    // ✅ Step 2: Apply logic installment-wise
+    let blockedMonths = [];
+
+    studentFee.installments.forEach((inst) => {
+      // Skip months not covered
+      const isTargeted =
+        period === "yearly" || months.includes(inst.month);
+      if (!isTargeted) return;
+
+      // Skip fully paid months
+      if (inst.amountPaid >= inst.originalAmount) {
+        blockedMonths.push(inst.month);
+        return;
+      }
+
+      // Remaining balance
+      const remaining = inst.originalAmount - inst.amountPaid;
+      let scholarshipAmount = 0;
+
+      if (type === "full") scholarshipAmount = remaining;
+      else if (type === "half") scholarshipAmount = remaining / 2;
+      else if (type === "custom") {
+        scholarshipAmount =
+          valueType === "fixed"
+            ? value
+            : (remaining * value) / 100;
+      }
+
+      // Don’t reduce below 0 or below already-paid
+      if (scholarshipAmount > remaining) scholarshipAmount = remaining;
+
+      inst.amount = Math.max(inst.amount - scholarshipAmount, inst.amountPaid);
+    });
+
+    // ✅ Step 3: If all months are fully paid, reject scholarship
+    if (blockedMonths.length === studentFee.installments.length) {
+      return res.status(400).json({
+        error: "Cannot apply scholarship. All months are already fully paid.",
+      });
+    }
+
+    // ✅ Step 4: Save scholarship in array
     studentFee.scholarships.push(scholarship);
 
-    // ✅ Keep track of original amount for safety
-    studentFee.installments = studentFee.installments.map((inst) => {
-      if (!inst.originalAmount) inst.originalAmount = inst.amount;
-      return inst;
-    });
-
-    // ✅ Recalculate each installment safely
-    studentFee.installments.forEach((inst) => {
-      let adjustedAmount = inst.originalAmount;
-
-      studentFee.scholarships.forEach((sch) => {
-        let discount = 0;
-        if (sch.type === "full") discount = adjustedAmount;
-        else if (sch.type === "half") discount = adjustedAmount / 2;
-        else if (sch.type === "custom") discount = sch.value;
-
-        // Apply based on scholarship period
-        if (sch.period === "yearly" || sch.months.includes(inst.month)) {
-          adjustedAmount -= discount;
-        }
-      });
-
-      inst.amount = Math.max(0, adjustedAmount);
-    });
-
-    // ✅ Update totals
+    // ✅ Step 5: Recalculate totals
     studentFee.netPayable = studentFee.installments.reduce(
-      (sum, inst) => sum + inst.amount,
+      (acc, i) => acc + i.amount,
       0
     );
     studentFee.balance = studentFee.netPayable - studentFee.totalPaid;
@@ -187,9 +193,17 @@ export const applyScholarship = async (req, res) => {
     await studentFee.save();
 
     res.status(200).json({
-      message: "Scholarship applied successfully",
+      message:
+        blockedMonths.length > 0
+          ? `Scholarship applied but skipped fully-paid months: ${blockedMonths.join(
+              ", "
+            )}`
+          : "Scholarship applied successfully",
       studentName: `${student.firstName} ${student.lastName || ""}`,
       registrationNumber: student.registrationNumber,
+      className: student.classId
+        ? `${student.classId.grade} ${student.classId.section}`
+        : "",
       session: studentFee.structureId?.session || "",
       studentFee,
     });
@@ -198,6 +212,7 @@ export const applyScholarship = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 export const getStudentsWithScholarships = async (req, res) => {
   try {
