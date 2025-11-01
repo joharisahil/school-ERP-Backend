@@ -180,6 +180,7 @@ export const createStudent = async (req, res) => {
       password: defaultPassword,
       role: "student",
     });
+    console.log("📩 Received classId:", classId);
 
     // ✅ Save student record
     const student = await Student.create({
