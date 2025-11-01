@@ -54,63 +54,61 @@ const studentSchema = new mongoose.Schema(
     },
     fatherphone: {
       type: String,
-      required: true,
     },
     motherphone: {
       type: String,
-      required: true,
     },
     contactEmail: {
       type: String,
-      required: true,
+
       validate: [validator.isEmail, "Please provide a valid email"],
       default: null,
     },
     contactName: {
       type: String,
-      required: true,
+
       default: null,
     },
     contactPhone: {
       type: String,
-      required: true,
+
       default: null,
     },
     relation: {
       type: String,
-      required: true, // e.g. Father, Mother, Guardian
+      // e.g. Father, Mother, Guardian
     },
     // New fields
     fatherName: {
       type: String,
-      required: true,
+
       default: null,
     },
     motherName: {
       type: String,
-      required: true,
+
       default: null,
     },
     fatherEmail: {
       type: String,
-      required: true,
+
       validate: [validator.isEmail, "Please provide a valid email"],
       default: null,
     },
     motherEmail: {
       type: String,
-      required: true,
+
       validate: [validator.isEmail, "Please provide a valid email"],
       default: null,
     },
     fatherOccupation: {
       type: String,
-      required: true,
+
       default: null,
     },
     motherOccupation: {
       type: String,
-      required: true,
+
       default: null,
     },
   },
