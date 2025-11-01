@@ -121,11 +121,25 @@ export const getFreeTeachers = async (req, res, next) => {
   try {
     const { day, periodNumber } = req.body;
 
-    const busyTeachers = await Period.find({ day, periodNumber }).distinct("teacherId");
-    const freeTeachers = await Teacher.find({ _id: { $nin: busyTeachers } });
+    //  Get logged-in admin from token
+    const adminId = req.user.id;
 
-    res.status(200).json({ success: true, count: freeTeachers.length, freeTeachers });
+    // Find busy teachers for that day and period
+    const busyTeachers = await Period.find({ day, periodNumber }).distinct("teacherId");
+
+    // Find teachers belonging to this admin and not busy
+    const freeTeachers = await Teacher.find({
+      admin: adminId,
+      _id: { $nin: busyTeachers },
+    });
+
+    res.status(200).json({
+      success: true,
+      count: freeTeachers.length,
+      freeTeachers,
+    });
   } catch (err) {
     next(err);
   }
 };
+
