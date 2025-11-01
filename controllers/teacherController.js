@@ -182,28 +182,28 @@ export const updateTeacher = async (req, res) => {
   }
 };
 
-export const getTeachersBySubject = async (req, res, next) => {
+
+export const getTeachersBySubject = async (req, res) => {
   try {
     const { subjectId } = req.params;
-    const adminId = req.user.id;
 
-    const subject = await Subject.findOne({
-      _id: subjectId,
-      classes: classId,
-    }).populate("teachers", "firstName lastName email");
+    const subject = await Subject.findById(subjectId).populate("teachers");
 
     if (!subject) {
-      return res.status(404).json({
-        success: false,
-        message: "Subject not found or not associated with your account",
-      });
+      return res.status(404).json({ message: "Subject not found" });
     }
 
-    res.status(200).json({
-      success: true,
-      teachers: subject.teachers || [],
-    });
-  } catch (err) {
-    next(err);
+    const teachers = subject.teachers.map((t) => ({
+      _id: t._id,
+      firstName: t.firstName,
+      lastName: t.lastName,
+      email: t.email,
+      subjects: t.subjects,
+    }));
+
+    res.status(200).json({ teachers });
+  } catch (error) {
+    console.error("Error fetching teachers by subject:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
