@@ -4,6 +4,8 @@ import { paginateQuery } from "../utils/paginate.js";
 import { Class } from "../models/classSchema.js"; // adjust the path if needed
 import mongoose from "mongoose";
 import { StudentFee } from "../models/studentFeeSchema.js";
+import { FeeStructure } from "../models/feeStructureSchema.js";
+
 
 const generateRegistrationNumber = () => {
   const timestamp = Date.now().toString().slice(-6);
@@ -11,6 +13,116 @@ const generateRegistrationNumber = () => {
   return `REG-${timestamp}${random}`;
 };
 
+// export const createStudent = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res
+//         .status(403)
+//         .json({ error: "Only admins can register students" });
+//     }
+
+//     const {
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       dob,
+//       address,
+//       contactEmail,
+//       contactName,
+//       contactPhone,
+//       relation,
+//       fatherName,
+//       motherName,
+//       fatherphone,
+//       motherphone,
+//       fatherEmail,
+//       motherEmail,
+//       fatherOccupation,
+//       motherOccupation,
+//       classId,
+//     } = req.body;
+
+//     const defaultPassword = "student@123";
+
+//     // Create login account for student
+//     const user = await User.create({
+//       email,
+//       password: defaultPassword,
+//       role: "student",
+//     });
+
+//     // Ensure unique registration number
+//     let registrationNumber;
+//     let exists = true;
+//     while (exists) {
+//       registrationNumber = generateRegistrationNumber();
+//       exists = await Student.findOne({ registrationNumber });
+//     }
+
+//     // Save student details
+//     const student = await Student.create({
+//       user: user._id,
+//       admin: req.user.id,
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       dob,
+//       registrationNumber,
+//       address,
+//       classId,
+//       contactEmail,
+//       contactName,
+//       contactPhone,
+//       relation,
+//       fatherName,
+//       motherName,
+//       fatherphone,
+//       motherphone,
+//       fatherEmail,
+//       motherEmail,
+//       fatherOccupation,
+//       motherOccupation,
+//     });
+
+//     // ✅ Add student to Class
+//     await Class.findByIdAndUpdate(classId, {
+//       $push: { students: student._id },
+//     });
+
+//     res.status(201).json({
+//       message: "Student registered successfully",
+//       student,
+//       loginCredentials: {
+//         email,
+//         password: defaultPassword,
+//       },
+//     });
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return res.status(400).json({
+//         error:
+//           "Student with this email or registration number already exists under your account",
+//       });
+//     }
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+const generateStudentEmail = (firstName, lastName, registrationNumber, schoolName) => {
+  const cleanFirstName = firstName.toLowerCase().replace(/\s+/g, '');
+  const cleanLastName = lastName.toLowerCase().replace(/\s+/g, '');
+  const cleanSchoolName = schoolName.toLowerCase().replace(/\s+/g, '');
+
+  // remove "REG-" before using in email
+  const regNoPart = registrationNumber.replace(/^REG-/, '');
+
+  return `${cleanFirstName}${cleanLastName}${regNoPart}@${cleanSchoolName}.jam`;
+};
+
+// ===== Main Controller =====
 export const createStudent = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -22,7 +134,6 @@ export const createStudent = async (req, res) => {
     const {
       firstName,
       lastName,
-      email,
       phone,
       dob,
       address,
@@ -39,18 +150,15 @@ export const createStudent = async (req, res) => {
       fatherOccupation,
       motherOccupation,
       classId,
+      session, // ✅ Make sure session is passed from frontend
     } = req.body;
+
+    // ✅ Static school name variable
+    const schoolName = "JamAcademy";
 
     const defaultPassword = "student@123";
 
-    // Create login account for student
-    const user = await User.create({
-      email,
-      password: defaultPassword,
-      role: "student",
-    });
-
-    // Ensure unique registration number
+    // ✅ Generate unique registration number
     let registrationNumber;
     let exists = true;
     while (exists) {
@@ -58,13 +166,28 @@ export const createStudent = async (req, res) => {
       exists = await Student.findOne({ registrationNumber });
     }
 
-    // Save student details
+    // ✅ Generate student email
+    const studentEmail = generateStudentEmail(
+      firstName,
+      lastName,
+      registrationNumber,
+      schoolName
+    );
+
+    // ✅ Create login user for student
+    const user = await User.create({
+      email: studentEmail,
+      password: defaultPassword,
+      role: "student",
+    });
+
+    // ✅ Save student record
     const student = await Student.create({
       user: user._id,
       admin: req.user.id,
       firstName,
       lastName,
-      email,
+      email: studentEmail,
       phone,
       dob,
       registrationNumber,
@@ -89,15 +212,54 @@ export const createStudent = async (req, res) => {
       $push: { students: student._id },
     });
 
+    // ✅ Auto-Assign Fee Structure if available
+    const existingStructure = await FeeStructure.findOne({ classId, session });
+
+    if (existingStructure) {
+      const installments = existingStructure.monthDetails.map((m) => ({
+        month: m.month,
+        dueDate: m.dueDate,
+        amount: m.amount,
+        status: "Pending",
+        amountPaid: 0,
+      }));
+
+      const totalAmount = installments.reduce(
+        (sum, inst) => sum + inst.amount,
+        0
+      );
+
+      const studentFee = await StudentFee.create({
+        studentId: student._id,
+        registrationNumber: student.registrationNumber,
+        classId,
+        session,
+        structureId: existingStructure._id,
+        totalAmount,
+        netPayable: totalAmount,
+        totalPaid: 0,
+        balance: totalAmount,
+        installments,
+        createdBy: req.user.id,
+      });
+
+      console.log(`✅ Fee structure auto-assigned to ${student.firstName}`);
+    } else {
+      console.log(
+        `⚠️ No Fee Structure found for class ${classId} (session ${session})`
+      );
+    }
+
     res.status(201).json({
       message: "Student registered successfully",
       student,
       loginCredentials: {
-        email,
+        email: studentEmail,
         password: defaultPassword,
       },
     });
   } catch (error) {
+    console.error("Error creating student:", error);
     if (error.code === 11000) {
       return res.status(400).json({
         error:
