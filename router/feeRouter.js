@@ -30,7 +30,7 @@ router.get("/with-scholarships", verifyToken, getStudentsWithScholarships);
 router.get("/search", verifyToken, searchFees);
 router.put("/structures/:structureId", verifyToken, updateFeeStructure);
 router.delete("/delete/:structureId", verifyToken, deleteFeeStructure);
-router.delete("remove/scholarship/:registrationNumber/:scholarshipId",verifyToken,removeScholarship);
+router.delete("/remove/scholarship/:registrationNumber/:scholarshipId",verifyToken,removeScholarship);
 
 export default router;
 
