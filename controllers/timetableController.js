@@ -36,105 +36,43 @@ export const createPeriod = async (req, res, next) => {
   }
 };
 
-// ✅ Auto-generate timetable for a class
-// export const autoGenerateTimetable = async (req, res, next) => {
-//   try {
-//     const { classId, days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], periodsPerDay = 6 } = req.body;
-
-//     const classObj = await Class.findById(classId);
-//     if (!classObj) return res.status(404).json({ error: "Class not found" });
-
-//     const subjects = await Subject.find({ classId }).populate("teacher");
-//     if (subjects.length === 0) return res.status(400).json({ error: "No subjects assigned to this class" });
-
-//     const createdPeriods = [];
-
-//     let periodCounter = 0;
-//     for (const day of days) {
-//       for (let p = 1; p <= periodsPerDay; p++) {
-//         const subject = subjects[periodCounter % subjects.length];
-//         if (!subject.teachers) continue;
-
-//         // avoid teacher conflict
-//        const conflict = await Period.findOne({
-//        day,
-//        periodNumber: p,
-//        $or: [
-//        { teacherId: subject.teachers._id },
-//        { classId }
-//       ]
-//       });
-
-//         if (conflict) continue;
-
-//         const period = await Period.create({
-//           day,
-//           periodNumber: p,
-//           classId,
-//           subjectId: subject._id,
-//           teacherId: subject.teachers._id,
-//         });
-
-//         createdPeriods.push(period);
-//         periodCounter++;
-//       }
-//     }
-
-//     res.status(201).json({ success: true, message: "Timetable auto-generated", created: createdPeriods.length });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
+//  Auto-generate timetable for a class
 export const autoGenerateTimetable = async (req, res, next) => {
   try {
-    const {
-      classId,
-      days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      periodsPerDay = 6,
-    } = req.body;
+    const { classId, days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], periodsPerDay = 6 } = req.body;
 
-    // Validate class
     const classObj = await Class.findById(classId);
-    if (!classObj)
-      return res.status(404).json({ error: "Class not found" });
+    if (!classObj) return res.status(404).json({ error: "Class not found" });
 
-    // ✅ Fix: populate the correct field name (teachers)
     const subjects = await Subject.find({ classId }).populate("teachers");
-
-    if (subjects.length === 0)
-      return res.status(400).json({ error: "No subjects assigned to this class" });
+    if (subjects.length === 0) return res.status(400).json({ error: "No subjects assigned to this class" });
 
     const createdPeriods = [];
-    let periodCounter = 0;
 
+    let periodCounter = 0;
     for (const day of days) {
       for (let p = 1; p <= periodsPerDay; p++) {
         const subject = subjects[periodCounter % subjects.length];
-        if (!subject.teachers || subject.teachers.length === 0) continue;
+        if (!subject.teachers) continue;
 
-        // ✅ Pick a teacher in round-robin way
-        const teacher = subject.teachers[periodCounter % subject.teachers.length];
-
-        // ✅ Avoid conflicts
-        const conflict = await Period.findOne({
-          day,
-          periodNumber: p,
-          $or: [
-            { teacherId: teacher._id },
-            { classId },
-          ],
-        });
+        // avoid teacher conflict
+       const conflict = await Period.findOne({
+       day,
+       periodNumber: p,
+       $or: [
+       { teacherId: subject.teachers._id },
+       { classId }
+      ]
+      });
 
         if (conflict) continue;
 
-        // ✅ Create new period
         const period = await Period.create({
           day,
           periodNumber: p,
           classId,
           subjectId: subject._id,
-          teacherId: teacher._id,
+          teacherId: subject.teachers._id,
         });
 
         createdPeriods.push(period);
@@ -142,16 +80,11 @@ export const autoGenerateTimetable = async (req, res, next) => {
       }
     }
 
-    res.status(201).json({
-      success: true,
-      message: "Timetable auto-generated",
-      created: createdPeriods.length,
-    });
+    res.status(201).json({ success: true, message: "Timetable auto-generated", created: createdPeriods.length });
   } catch (err) {
     next(err);
   }
 };
-
 
 // ✅ Get class timetable
 export const getClassTimetable = async (req, res, next) => {
