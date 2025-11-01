@@ -46,7 +46,7 @@ const studentSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique:true,
+      unique: true,
       validate: [validator.isEmail, "Please provide a valid email"],
     },
     phone: {
@@ -62,8 +62,14 @@ const studentSchema = new mongoose.Schema(
     contactEmail: {
       type: String,
 
-      validate: [validator.isEmail, "Please provide a valid email"],
-      default: null,
+      validate: {
+        validator: function (value) {
+          if (!value) return true; // ✅ allow null or empty string
+          return validator.isEmail(value);
+        },
+        message: "Please provide a valid email",
+      },
+      default: "",
     },
     contactName: {
       type: String,
@@ -92,15 +98,25 @@ const studentSchema = new mongoose.Schema(
     },
     fatherEmail: {
       type: String,
-
-      validate: [validator.isEmail, "Please provide a valid email"],
-      default: null,
+      validate: {
+        validator: function (value) {
+          if (!value) return true; // ✅ allow null or empty string
+          return validator.isEmail(value);
+        },
+        message: "Please provide a valid email",
+      },
+      default: "",
     },
     motherEmail: {
       type: String,
-
-      validate: [validator.isEmail, "Please provide a valid email"],
-      default: null,
+      validate: {
+        validator: function (value) {
+          if (!value) return true; // ✅ allow null or empty string
+          return validator.isEmail(value);
+        },
+        message: "Please provide a valid email",
+      },
+      default: "",
     },
     fatherOccupation: {
       type: String,
