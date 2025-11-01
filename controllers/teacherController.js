@@ -2,6 +2,7 @@ import { Teacher } from "../models/teacherSchema.js";
 import { User } from "../models/userRegisterSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 import { paginateQuery } from "../utils/paginate.js";
+import { Subject } from "../models/subjectSchema.js";
  
 const generateRegistrationNumber=()=>{
   const timestamp = Date.now().toString().slice(-6);
@@ -178,5 +179,31 @@ export const updateTeacher = async (req, res) => {
   } catch (error) {
     console.error("Error updating teacher:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const getTeachersBySubject = async (req, res, next) => {
+  try {
+    const { subjectId } = req.params;
+    const adminId = req.user.id;
+
+    const subject = await Subject.findOne({
+      _id: subjectId,
+      classes: classId,
+    }).populate("teachers", "firstName lastName email");
+
+    if (!subject) {
+      return res.status(404).json({
+        success: false,
+        message: "Subject not found or not associated with your account",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      teachers: subject.teachers || [],
+    });
+  } catch (err) {
+    next(err);
   }
 };
