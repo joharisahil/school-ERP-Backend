@@ -107,7 +107,7 @@ export const getTeacherTimetable = async (req, res, next) => {
     const { teacherId } = req.params;
     const timetable = await Period.find({ teacherId })
       .populate("subjectId", "name code")
-      .populate("classId", "grade")
+      .populate("classId", "grade section")
       .sort({ day: 1, periodNumber: 1 });
 
     res.status(200).json({ success: true, timetable });
