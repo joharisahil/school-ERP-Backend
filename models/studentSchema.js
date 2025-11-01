@@ -46,6 +46,7 @@ const studentSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      unique: true,
       validate: [validator.isEmail, "Please provide a valid email"],
     },
     phone: {
@@ -54,63 +55,77 @@ const studentSchema = new mongoose.Schema(
     },
     fatherphone: {
       type: String,
-      required: true,
     },
     motherphone: {
       type: String,
-      required: true,
     },
     contactEmail: {
       type: String,
-      required: true,
-      validate: [validator.isEmail, "Please provide a valid email"],
-      default: null,
+
+      validate: {
+        validator: function (value) {
+          if (!value) return true; // ✅ allow null or empty string
+          return validator.isEmail(value);
+        },
+        message: "Please provide a valid email",
+      },
+      default: "",
     },
     contactName: {
       type: String,
-      required: true,
+
       default: null,
     },
     contactPhone: {
       type: String,
-      required: true,
+
       default: null,
     },
     relation: {
       type: String,
-      required: true, // e.g. Father, Mother, Guardian
+      // e.g. Father, Mother, Guardian
     },
     // New fields
     fatherName: {
       type: String,
-      required: true,
+
       default: null,
     },
     motherName: {
       type: String,
-      required: true,
+
       default: null,
     },
     fatherEmail: {
       type: String,
-      required: true,
-      validate: [validator.isEmail, "Please provide a valid email"],
-      default: null,
+      validate: {
+        validator: function (value) {
+          if (!value) return true; // ✅ allow null or empty string
+          return validator.isEmail(value);
+        },
+        message: "Please provide a valid email",
+      },
+      default: "",
     },
     motherEmail: {
       type: String,
-      required: true,
-      validate: [validator.isEmail, "Please provide a valid email"],
-      default: null,
+      validate: {
+        validator: function (value) {
+          if (!value) return true; // ✅ allow null or empty string
+          return validator.isEmail(value);
+        },
+        message: "Please provide a valid email",
+      },
+      default: "",
     },
     fatherOccupation: {
       type: String,
-      required: true,
+
       default: null,
     },
     motherOccupation: {
       type: String,
-      required: true,
+
       default: null,
     },
   },
