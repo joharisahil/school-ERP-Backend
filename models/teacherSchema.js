@@ -60,6 +60,9 @@ const teacherSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // 👇 Soft delete fields
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

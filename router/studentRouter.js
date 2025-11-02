@@ -8,7 +8,7 @@ router.get('/getall', verifyToken, getAllStudents);
 router.post('/create', verifyToken, createStudent);
 router.put("/:id", verifyToken,  updateStudent);
 router.delete("/delete/:id", verifyToken, deleteStudent);
-router.get("/search", verifyToken, searchStudents);
+router.get("/query/search", verifyToken, searchStudents);
 export default router;
 
 
