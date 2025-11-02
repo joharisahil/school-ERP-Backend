@@ -36,7 +36,7 @@ export const createPeriod = async (req, res, next) => {
   }
 };
 
-// ✅ Auto-generate timetable for a class
+//  Auto-generate timetable for a class
 export const autoGenerateTimetable = async (req, res, next) => {
   try {
     const { classId, days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], periodsPerDay = 6 } = req.body;
@@ -44,7 +44,7 @@ export const autoGenerateTimetable = async (req, res, next) => {
     const classObj = await Class.findById(classId);
     if (!classObj) return res.status(404).json({ error: "Class not found" });
 
-    const subjects = await Subject.find({ classId }).populate("teacher");
+    const subjects = await Subject.find({ classId }).populate("teachers");
     if (subjects.length === 0) return res.status(400).json({ error: "No subjects assigned to this class" });
 
     const createdPeriods = [];
@@ -56,14 +56,14 @@ export const autoGenerateTimetable = async (req, res, next) => {
         if (!subject.teachers) continue;
 
         // avoid teacher conflict
-       const conflict = await Period.findOne({
-       day,
-       periodNumber: p,
-       $or: [
-       { teacherId: subject.teachers._id },
-       { classId }
-      ]
-      });
+        const conflict = await Period.findOne({
+          day,
+          periodNumber: p,
+          $or: [
+            { teacherId: subject.teachers._id },
+            { classId }
+          ]
+        });
 
         if (conflict) continue;
 
@@ -92,7 +92,7 @@ export const getClassTimetable = async (req, res, next) => {
     const { classId } = req.params;
     const timetable = await Period.find({ classId })
       .populate("subjectId", "name code")
-      .populate("teacherId", "name email")
+      .populate("teacherId", "firstName lastName email")
       .sort({ day: 1, periodNumber: 1 });
 
     res.status(200).json({ success: true, timetable });
@@ -107,7 +107,7 @@ export const getTeacherTimetable = async (req, res, next) => {
     const { teacherId } = req.params;
     const timetable = await Period.find({ teacherId })
       .populate("subjectId", "name code")
-      .populate("classId", "grade")
+      .populate("classId", "grade section")
       .sort({ day: 1, periodNumber: 1 });
 
     res.status(200).json({ success: true, timetable });
@@ -121,11 +121,25 @@ export const getFreeTeachers = async (req, res, next) => {
   try {
     const { day, periodNumber } = req.body;
 
-    const busyTeachers = await Period.find({ day, periodNumber }).distinct("teacherId");
-    const freeTeachers = await Teacher.find({ _id: { $nin: busyTeachers } });
+    //  Get logged-in admin from token
+    const adminId = req.user.id;
 
-    res.status(200).json({ success: true, count: freeTeachers.length, freeTeachers });
+    // Find busy teachers for that day and period
+    const busyTeachers = await Period.find({ day, periodNumber }).distinct("teacherId");
+
+    // Find teachers belonging to this admin and not busy
+    const freeTeachers = await Teacher.find({
+      admin: adminId,
+      _id: { $nin: busyTeachers },
+    });
+
+    res.status(200).json({
+      success: true,
+      count: freeTeachers.length,
+      freeTeachers,
+    });
   } catch (err) {
     next(err);
   }
 };
+
