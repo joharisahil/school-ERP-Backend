@@ -382,6 +382,7 @@ export const getStudentFeeByRegNo = async (req, res) => {
       registrationNumber: student.registrationNumber,
       studentName: `${student.firstName} ${student.lastName || ""}`.trim(),
       className: `${student.classId.grade} ${student.classId.section}`,
+      phone:student.phone,
       totalAmount: fee.totalAmount,
       netPayable: fee.netPayable,
       totalPaid: fee.totalPaid,
