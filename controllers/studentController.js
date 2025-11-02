@@ -452,3 +452,100 @@ export const deleteStudent = async (req, res) => {
       .json({ error: "Server error while deleting student" });
   }
 };
+
+export const searchStudents = async (req, res) => {
+  try {
+    const { query, page = 1, limit = 10 } = req.query;
+    const adminId = req.user.id;
+
+    if (!query) {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    // 🔍 Find class matches (for class name or grade)
+    const matchedClasses = await Class.find({
+      $or: [
+        { name: { $regex: query, $options: "i" } },
+        { grade: { $regex: query, $options: "i" } },
+        {
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ["$name", " ", "$grade"] },
+              regex: query,
+              options: "i",
+            },
+          },
+        },
+      ],
+    }).select("_id");
+
+    const classIds = matchedClasses.map((c) => c._id);
+
+    // 🔍 Find students matching search query
+    const matchedStudents = await Student.find({
+      admin: adminId,
+      $or: [
+        { firstName: { $regex: query, $options: "i" } },
+        {
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ["$firstName", " ", "$lastName"] },
+              regex: query,
+              options: "i",
+            },
+          },
+        },
+        { email: { $regex: query, $options: "i" } },
+        { phone: { $regex: query, $options: "i" } },
+        { registrationNumber: { $regex: query, $options: "i" } },
+        { classId: { $in: classIds } },
+      ],
+    }).select("_id");
+
+    const studentIds = matchedStudents.map((s) => s._id);
+
+    // 🔎 Main search in Fee (or Payment) collection
+    const searchConditions = {
+      admin: adminId,
+      $or: [
+        { studentId: { $in: studentIds } },
+        { classId: { $in: classIds } },
+      ],
+    };
+
+    const skip = (pageNum - 1) * limitNum;
+
+    const [results, total] = await Promise.all([
+      Fee.find(searchConditions)
+        .populate("studentId", "firstName lastName rollNo classId")
+        .populate("classId", "name grade")
+        .populate(
+          "structureId",
+          "session totalAmount amountPerInstallment scholarships"
+        )
+        .skip(skip)
+        .limit(limitNum)
+        .sort({ createdAt: -1 }),
+
+      Fee.countDocuments(searchConditions),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    res.status(200).json({
+      success: true,
+      total,
+      totalPages,
+      currentPage: pageNum,
+      pageSize: limitNum,
+      count: results.length,
+      results,
+    });
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({ message: "Server error during search" });
+  }
+};
