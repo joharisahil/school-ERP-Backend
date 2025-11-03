@@ -10,7 +10,7 @@ router.post('/create', verifyToken, createStudent);
 router.put("/:id", verifyToken,  updateStudent);
 router.delete("/delete/:id", verifyToken, deleteStudent);
 router.get("/query/search", verifyToken, searchStudents);
-router.post("/upload-excel", verifyToken, upload.single("file"), uploadStudentsExcel);
+router.post("/upload-excel/forStudent", verifyToken, upload.single("file"), uploadStudentsExcel);
 
 export default router;
 
