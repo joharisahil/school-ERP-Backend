@@ -143,3 +143,62 @@ export const getFreeTeachers = async (req, res, next) => {
   }
 };
 
+// Update a specific period in a class timetable
+export const updatePeriod = async (req, res, next) => {
+  try {
+    const { periodId } = req.params;
+    const { day, periodNumber, classId, subjectId, teacherId } = req.body;
+
+    // Validate input
+    if (!periodId) return res.status(400).json({ error: "Period ID is required" });
+
+    // Check existence
+    const period = await Period.findById(periodId);
+    if (!period) return res.status(404).json({ error: "Period not found" });
+
+    const [classObj, subject, teacher] = await Promise.all([
+      Class.findById(classId || period.classId),
+      Subject.findById(subjectId || period.subjectId),
+      Teacher.findById(teacherId || period.teacherId),
+    ]);
+
+    if (!classObj || !subject || !teacher)
+      return res.status(404).json({ error: "Class, Subject, or Teacher not found" });
+
+    // Ensure teacher is assigned to the subject
+    if (!subject.teachers?.some(t => t.toString() === (teacherId || period.teacherId.toString()))) {
+      return res.status(400).json({ error: "This teacher is not assigned to this subject" });
+    }
+
+    // Prevent teacher or class conflict for same slot
+    const conflict = await Period.findOne({
+      _id: { $ne: periodId },
+      day: day || period.day,
+      periodNumber: periodNumber || period.periodNumber,
+      $or: [
+        { teacherId: teacherId || period.teacherId },
+        { classId: classId || period.classId },
+      ],
+    });
+
+    if (conflict)
+      return res.status(400).json({ error: "Conflict detected: teacher or class already occupied at this time" });
+
+    // Update and save
+    period.day = day || period.day;
+    period.periodNumber = periodNumber || period.periodNumber;
+    period.classId = classId || period.classId;
+    period.subjectId = subjectId || period.subjectId;
+    period.teacherId = teacherId || period.teacherId;
+
+    await period.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Period updated successfully",
+      period,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

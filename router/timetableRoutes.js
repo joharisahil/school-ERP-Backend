@@ -5,6 +5,7 @@ import {
   getClassTimetable,
   getTeacherTimetable,
   getFreeTeachers,
+  updatePeriod,
 } from "../controllers/timetableController.js";
 import { verifyToken } from "../middlewares/authMiddleware.js";
 
@@ -15,5 +16,6 @@ router.post("/auto-generate", verifyToken, autoGenerateTimetable); // auto-gener
 router.get("/class/:classId", verifyToken, getClassTimetable); // class timetable
 router.get("/teacher/:teacherId", verifyToken, getTeacherTimetable); // teacher timetable
 router.post("/free-teachers", verifyToken, getFreeTeachers); // find available teachers
+router.put("/update/:periodId", verifyToken, updatePeriod);
 
 export default router;
