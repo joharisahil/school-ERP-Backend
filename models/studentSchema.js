@@ -37,11 +37,11 @@ const studentSchema = new mongoose.Schema(
     // },
     dob: {
       type: Date,
-      required: true,
+      //required: true,
     },
     address: {
       type: String,
-      required: true,
+      //required: true,
     },
     email: {
       type: String,
@@ -128,6 +128,15 @@ const studentSchema = new mongoose.Schema(
 
       default: null,
     },
+    aadhaarNumber: {
+    type: String,
+    match: /^[0-9]{12}$/,
+    default: null
+  },
+  caste: {
+    type: String,
+    default:null,
+  },
   },
   { timestamps: true }
 );

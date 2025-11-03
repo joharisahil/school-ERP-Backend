@@ -67,5 +67,8 @@ const teacherSchema = new mongoose.Schema(
   { timestamps: true }
 );
 teacherSchema.index({ admin: 1, email: 1 }, { unique: true });
-
+teacherSchema.pre(/^find/, function (next) {
+  this.where({ isDeleted: false });
+  next();
+});
 export const Teacher = mongoose.model("Teacher", teacherSchema);

@@ -80,38 +80,6 @@ export const createTeacher = async (req, res) => {
   }
 };
 
-// export const getAllTeachers = async (req, res, next) => {
-//   try {
-//     // Defaults: page=1, limit=10
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const skip = (page - 1) * limit;
-
-//     // Fetch teachers with pagination
-//     const teachers = await Teacher.find()
-//       .skip(skip)
-//       .limit(limit);
-
-//     // Count total teachers
-//     const totalTeachers = await Teacher.countDocuments();
-
-//     res.status(200).json({
-//       success: true,
-//       teachers,
-//       pagination: {
-//         totalTeachers,
-//         currentPage: page,
-//         totalPages: Math.ceil(totalTeachers / limit),
-//         limit,
-//       },
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-
 export const getAllTeachers = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
