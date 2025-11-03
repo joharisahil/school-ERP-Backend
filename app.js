@@ -23,6 +23,7 @@ import protectedRoutes from "./router/protectedRoutes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
 import { verifyToken } from "./middlewares/authMiddleware.js";
+import "./cron/deleteOldTeachers.js";
 
 const app = express();
 config({ path: "./config/config.env" });

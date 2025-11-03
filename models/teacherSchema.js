@@ -60,9 +60,15 @@ const teacherSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // 👇 Soft delete fields
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 teacherSchema.index({ admin: 1, email: 1 }, { unique: true });
-
+teacherSchema.pre(/^find/, function (next) {
+  this.where({ isDeleted: false });
+  next();
+});
 export const Teacher = mongoose.model("Teacher", teacherSchema);

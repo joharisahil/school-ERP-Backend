@@ -80,38 +80,6 @@ export const createTeacher = async (req, res) => {
   }
 };
 
-// export const getAllTeachers = async (req, res, next) => {
-//   try {
-//     // Defaults: page=1, limit=10
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const skip = (page - 1) * limit;
-
-//     // Fetch teachers with pagination
-//     const teachers = await Teacher.find()
-//       .skip(skip)
-//       .limit(limit);
-
-//     // Count total teachers
-//     const totalTeachers = await Teacher.countDocuments();
-
-//     res.status(200).json({
-//       success: true,
-//       teachers,
-//       pagination: {
-//         totalTeachers,
-//         currentPage: page,
-//         totalPages: Math.ceil(totalTeachers / limit),
-//         limit,
-//       },
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-
 export const getAllTeachers = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
@@ -205,5 +173,30 @@ export const getTeachersBySubject = async (req, res) => {
   } catch (error) {
     console.error("Error fetching teachers by subject:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const teacher = await Teacher.findById(id);
+
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: "Teacher not found" });
+    }
+
+    if (teacher.isDeleted) {
+      return res.status(400).json({ success: false, message: "Teacher already deleted" });
+    }
+
+    teacher.isDeleted = true;
+    teacher.deletedAt = new Date();
+    await teacher.save();
+
+    res.status(200).json({ success: true, message: "Teacher soft deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting teacher:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
