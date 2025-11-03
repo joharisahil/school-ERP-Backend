@@ -143,61 +143,75 @@ export const getFreeTeachers = async (req, res, next) => {
   }
 };
 
+
+export const getPeriodByClassDayPeriod = async (req, res, next) => {
+  try {
+    const { classId, day, periodNumber } = req.params;
+
+    const period = await Period.findOne({ classId, day, periodNumber })
+      .populate("subjectId", "name code")
+      .populate("teacherId", "firstName lastName email");
+
+    if (!period) {
+      return res.status(404).json({ success: false, message: "No period found for this slot" });
+    }
+
+    res.status(200).json({ success: true, period });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
 // Update a specific period in a class timetable
 export const updatePeriod = async (req, res, next) => {
   try {
     const { periodId } = req.params;
-    const { day, periodNumber, classId, subjectId, teacherId } = req.body;
+    const { day, periodNumber, classId, subjectId, teacherId, room } = req.body;
 
-    // Validate input
-    if (!periodId) return res.status(400).json({ error: "Period ID is required" });
+    // 🔍 Conflict checks
+    const teacherConflict = await Period.findOne({
+      _id: { $ne: periodId },
+      day,
+      periodNumber,
+      teacherId,
+    });
 
-    // Check existence
-    const period = await Period.findById(periodId);
-    if (!period) return res.status(404).json({ error: "Period not found" });
-
-    const [classObj, subject, teacher] = await Promise.all([
-      Class.findById(classId || period.classId),
-      Subject.findById(subjectId || period.subjectId),
-      Teacher.findById(teacherId || period.teacherId),
-    ]);
-
-    if (!classObj || !subject || !teacher)
-      return res.status(404).json({ error: "Class, Subject, or Teacher not found" });
-
-    // Ensure teacher is assigned to the subject
-    if (!subject.teachers?.some(t => t.toString() === (teacherId || period.teacherId.toString()))) {
-      return res.status(400).json({ error: "This teacher is not assigned to this subject" });
+    if (teacherConflict) {
+      return res.status(400).json({
+        success: false,
+        message: "Teacher is already assigned in another class at this time",
+      });
     }
 
-    // Prevent teacher or class conflict for same slot
-    const conflict = await Period.findOne({
+    const classConflict = await Period.findOne({
       _id: { $ne: periodId },
-      day: day || period.day,
-      periodNumber: periodNumber || period.periodNumber,
-      $or: [
-        { teacherId: teacherId || period.teacherId },
-        { classId: classId || period.classId },
-      ],
+      day,
+      periodNumber,
+      classId,
     });
 
-    if (conflict)
-      return res.status(400).json({ error: "Conflict detected: teacher or class already occupied at this time" });
+    if (classConflict) {
+      return res.status(400).json({
+        success: false,
+        message: "This class already has another subject in this period",
+      });
+    }
 
-    // Update and save
-    period.day = day || period.day;
-    period.periodNumber = periodNumber || period.periodNumber;
-    period.classId = classId || period.classId;
-    period.subjectId = subjectId || period.subjectId;
-    period.teacherId = teacherId || period.teacherId;
+    // ✅ Update the period
+    const updated = await Period.findByIdAndUpdate(
+      periodId,
+      { day, periodNumber, classId, subjectId, teacherId, room },
+      { new: true }
+    )
+      .populate("subjectId", "name code")
+      .populate("teacherId", "firstName lastName");
 
-    await period.save();
+    if (!updated)
+      return res.status(404).json({ success: false, message: "Period not found" });
 
-    res.status(200).json({
-      success: true,
-      message: "Period updated successfully",
-      period,
-    });
+    res.status(200).json({ success: true, message: "Period updated successfully", period: updated });
   } catch (err) {
     next(err);
   }
