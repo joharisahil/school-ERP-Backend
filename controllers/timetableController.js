@@ -143,3 +143,76 @@ export const getFreeTeachers = async (req, res, next) => {
   }
 };
 
+
+export const getPeriodByClassDayPeriod = async (req, res, next) => {
+  try {
+    const { classId, day, periodNumber } = req.params;
+
+    const period = await Period.findOne({ classId, day, periodNumber })
+      .populate("subjectId", "name code")
+      .populate("teacherId", "firstName lastName email");
+
+    if (!period) {
+      return res.status(404).json({ success: false, message: "No period found for this slot" });
+    }
+
+    res.status(200).json({ success: true, period });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+// Update a specific period in a class timetable
+export const updatePeriod = async (req, res, next) => {
+  try {
+    const { periodId } = req.params;
+    const { day, periodNumber, classId, subjectId, teacherId, room } = req.body;
+
+    // 🔍 Conflict checks
+    const teacherConflict = await Period.findOne({
+      _id: { $ne: periodId },
+      day,
+      periodNumber,
+      teacherId,
+    });
+
+    if (teacherConflict) {
+      return res.status(400).json({
+        success: false,
+        message: "Teacher is already assigned in another class at this time",
+      });
+    }
+
+    const classConflict = await Period.findOne({
+      _id: { $ne: periodId },
+      day,
+      periodNumber,
+      classId,
+    });
+
+    if (classConflict) {
+      return res.status(400).json({
+        success: false,
+        message: "This class already has another subject in this period",
+      });
+    }
+
+    // ✅ Update the period
+    const updated = await Period.findByIdAndUpdate(
+      periodId,
+      { day, periodNumber, classId, subjectId, teacherId, room },
+      { new: true }
+    )
+      .populate("subjectId", "name code")
+      .populate("teacherId", "firstName lastName");
+
+    if (!updated)
+      return res.status(404).json({ success: false, message: "Period not found" });
+
+    res.status(200).json({ success: true, message: "Period updated successfully", period: updated });
+  } catch (err) {
+    next(err);
+  }
+};
