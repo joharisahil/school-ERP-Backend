@@ -33,6 +33,7 @@ export const createAndAssignFeeStructure = async (req, res) => {
         0
       );
       const feeStructure = await FeeStructure.create({
+        admin: req.user._id,
         classId,
         session,
         monthDetails,
@@ -61,6 +62,7 @@ export const createAndAssignFeeStructure = async (req, res) => {
         );
 
         return {
+           admin: req.user._id, 
           studentId: student._id,
           registrationNumber: student.registrationNumber, // ✅ added field here
           classId,

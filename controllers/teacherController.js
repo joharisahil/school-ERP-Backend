@@ -30,7 +30,7 @@ export const createTeacher = async (req, res) => {
     } = req.body;
 
     const defaultPassword = "teacher@123";
-    console.log(firstName,lastName,email,phone,phone2,dob,address,subjects,qualifications,experienceYears);
+    //console.log(firstName,lastName,email,phone,phone2,dob,address,subjects,qualifications,experienceYears);
     // Check if email already exists for a teacher
    
     //Generate unique teacherId
