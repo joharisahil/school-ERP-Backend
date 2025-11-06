@@ -62,7 +62,7 @@ export const createAndAssignFeeStructure = async (req, res) => {
         );
 
         return {
-           admin: req.user._id, 
+           admin: req.user.id, 
           studentId: student._id,
           registrationNumber: student.registrationNumber, // ✅ added field here
           classId,
