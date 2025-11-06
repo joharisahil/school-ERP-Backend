@@ -8,40 +8,6 @@ import bcrypt from "bcryptjs";
 import { paginateQuery } from "../utils/paginate.js";
 import mongoose from "mongoose";
 
-// export const createClass = async (req, res, next) => {
-//   try {
-//      if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can register students" });
-//     }
-//     const { grade, section } = req.body;
-
-//     if (!grade || !section) {
-//       return res.status(400).json({ success: false, message: "Please provide grade and section" });
-//     }
-
-//     const newClass = await Class.create({ grade, section });
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Class Created!",
-//       class: newClass,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-// export const getAllClasses = async (req, res, next) => {
-//   try {
-//   const classes = await Class.find();
-//   res.status(200).json({
-//     success: true,
-//     classes,
-//   });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 export const createClass = async (req, res, next) => {
   try {
     // ✅ Ensure only admins can create a class
@@ -101,31 +67,6 @@ export const createClass = async (req, res, next) => {
   }
 };
 
-// export const getAllClasses = async (req, res, next) => {
-//   try {
-//      if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can register students" });
-//     }
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const { results: classes, pagination } = await paginateQuery(
-//       Class,
-//       {},
-//       [], // no populate here, unless you want to add teachers/students later
-//       page,
-//       limit
-//     );
-
-//     res.status(200).json({
-//       success: true,
-//       classes,
-//       pagination,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 
 export const getAllClasses = async (req, res, next) => {
   try {

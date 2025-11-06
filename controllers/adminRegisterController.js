@@ -1,19 +1,54 @@
 import { User } from "../models/userRegisterSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
+import { Student } from "../models/studentSchema.js";
+import { Teacher } from "../models/teacherSchema.js";
+import { Class } from "../models/classSchema.js"; // or Subject model if you use that
+import { StudentFee } from "../models/studentFeeSchema.js";
+
+
+// export const adminRegister = async (req, res, next) => {
+//   console.log(req.body);
+//   const { email, password, role } = req.body;
+//   try {
+//     if (!email || !password || !role) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Please Fill Form!" });
+//       handleValidationError("Please Fill Form!", 400);
+//     }
+
+//     // Check if an admin with the same email already exists
+//     const existingAdmin = await User.findOne({ email, role: "admin" });
+//     if (existingAdmin) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Admin already exists" });
+//     }
+
+//     await User.create({ email, password, role });
+//     res.status(200).json({
+//       success: true,
+//       message: "Admin Created!",
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 
 export const adminRegister = async (req, res, next) => {
   console.log(req.body);
-  const { email, password, role } = req.body;
+  const { email, password, role, schoolName, planDays } = req.body;
+
   try {
-    if (!email || !password || !role) {
+    // ✅ Validate required fields
+    if (!email || !password || !role || !schoolName) {
       return res
         .status(400)
-        .json({ success: false, message: "Please Fill Form!" });
-      handleValidationError("Please Fill Form!", 400);
+        .json({ success: false, message: "Please fill all required fields!" });
     }
 
-    // Check if an admin with the same email already exists
+    // ✅ Check if an admin with the same email already exists
     const existingAdmin = await User.findOne({ email, role: "admin" });
     if (existingAdmin) {
       return res
@@ -21,76 +56,28 @@ export const adminRegister = async (req, res, next) => {
         .json({ success: false, message: "Admin already exists" });
     }
 
-    await User.create({ email, password, role });
+    // ✅ Ensure planDays never exceeds 360
+    const validPlanDays = planDays && planDays <= 360 ? planDays : 360;
+
+    // ✅ Create new admin
+    await User.create({
+      email,
+      password,
+      role,
+      schoolName,
+      planDays: validPlanDays,
+    });
+
     res.status(200).json({
       success: true,
-      message: "Admin Created!",
+      message: "Admin registered successfully!",
     });
   } catch (err) {
+    console.error(err);
     next(err);
   }
 };
 
-// export const registerTeacher = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can register teachers" });
-//     }
-
-//     const { email, password, name, subject } = req.body;
-
-//     // Create login user for teacher
-//     const user = await User.create({ email, password, role: "teacher" });
-
-//     // Link profile to the logged-in admin (req.user.id!)
-//     const teacher = await Teacher.create({
-//       user: user._id,
-//       admin: req.user.id,
-//       name,
-//       subject,
-//       email,
-//     });
-
-//     res.status(201).json({ message: "Teacher registered successfully", teacher });
-//   } catch (error) {
-//     if (error.code === 11000) {
-//       return res.status(400).json({ error: "This email is already registered for this school" });
-//     }
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-// export const registerStudent = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       console.log("admin not found", req.user.role);
-//       return res.status(403).json({ error: "Only admins can register students" });
-//     }
-//     console.log("admin found", req.user.role);
-//     const { email, password, name, grade, registrationNumber } = req.body;
-//     console.log("User Creation started");
-//     const user = await User.create({ email, password, role: "student" });
-//     console.log("User Created");
-//     const student = await Student.create({
-//       user: user._id,
-//       admin: req.user.id,
-//       name,
-//       grade,
-//       email,
-//       registrationNumber,
-//     });
-//     console.log("User added in student")
-//     res.status(201).json({ message: "Student registered successfully", student });
-//   } catch (error) {
-//     console.log("we are here in catch", error)
-//     if (error.code === 11000) {
-//       return res.status(400).json({ error: "This email/registration already exists for this school" });
-//     }
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-// controllers/authController.js
 
 export const logout = async (req, res, next) => {
   try {
@@ -105,6 +92,55 @@ export const logout = async (req, res, next) => {
       message: "Logged out successfully",
     });
   } catch (err) {
+    next(err);
+  }
+};
+
+
+export const getAdminKPI = async (req, res, next) => {
+  try {
+    const adminId = req.user.id;
+    const admin = await User.findById(adminId);
+
+    if (!admin || admin.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    // ✅ Count totals (school-level)
+    const [studentsCount, teachersCount, classesCount] = await Promise.all([
+      Student.countDocuments({ admin: adminId }),
+      Teacher.countDocuments({ admin: adminId }),
+      Class.countDocuments({ admin: adminId }),
+    ]);
+
+    // ✅ Calculate total pending fees from StudentFee collection
+    const studentFees = await StudentFee.find({ admin: adminId });
+
+    let totalPending = 0;
+    studentFees.forEach((fee) => {
+      // Use the `balance` field directly (already stores remaining fee)
+      totalPending += fee.balance || 0;
+    });
+
+    // ✅ School info from admin profile
+    const { schoolName, planDays } = admin;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        schoolName,
+        planDays,
+        studentsCount,
+        teachersCount,
+        classesCount,
+        feesPending: totalPending,
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching KPI:", err);
     next(err);
   }
 };
