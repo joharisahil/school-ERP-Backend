@@ -139,6 +139,7 @@ export const createStudent = async (req, res) => {
       );
 
       const studentFee = await StudentFee.create({
+        admin: req.user.id,
         studentId: student._id,
         registrationNumber: student.registrationNumber,
         classId,

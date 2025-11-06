@@ -1,9 +1,9 @@
 import { Teacher } from "../models/teacherSchema.js";
 import { User } from "../models/userRegisterSchema.js";
-import { handleValidationError } from "../middlewares/errorHandler.js";
 import { paginateQuery } from "../utils/paginate.js";
 import { Subject } from "../models/subjectSchema.js";
- 
+import XLSX from "xlsx";
+
 const generateRegistrationNumber=()=>{
   const timestamp = Date.now().toString().slice(-6);
   const random = Math.floor(100 + Math.random()*900);
@@ -198,5 +198,117 @@ export const deleteTeacher = async (req, res) => {
   } catch (error) {
     console.error("Error deleting teacher:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const uploadTeachersExcel = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can upload teachers" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Please upload an Excel file" });
+    }
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const defaultPassword = "teacher@123";
+    const results = { success: [], failed: [] };
+
+    for (const row of rows) {
+      try {
+        const {
+          firstName,
+          lastName,
+          email,
+          phone,
+          phone2,
+          dob,
+          address,
+          subjects,
+          qualifications,
+          experienceYears,
+        } = row;
+
+        // ✅ Mandatory checks
+        if (!firstName || !email || !phone || !address || experienceYears === undefined) {
+          results.failed.push({
+            row,
+            reason: "Missing required fields (*firstName, *email, *phone, *address, *experienceYears)",
+          });
+          continue;
+        }
+
+        // ✅ Check duplicate teacher for same admin
+        const duplicate = await Teacher.findOne({
+          email,
+          admin: req.user.id,
+          isDeleted: false,
+        });
+
+        if (duplicate) {
+          results.failed.push({ row, reason: "Duplicate teacher email under this admin" });
+          continue;
+        }
+
+        // ✅ Generate unique registration number
+        let registrationNumber;
+        let exists = true;
+        while (exists) {
+          registrationNumber = generateRegistrationNumber();
+          exists = await Teacher.findOne({ registrationNumber });
+        }
+
+        // ✅ Create user login
+        const user = await User.create({
+          email,
+          password: defaultPassword,
+          role: "teacher",
+        });
+
+        // ✅ Create teacher record
+        const teacher = await Teacher.create({
+          user: user._id,
+          admin: req.user.id,
+          firstName,
+          lastName,
+          email,
+          phone,
+          phone2,
+          dob,
+          address,
+          subjects: subjects ? subjects.split(",").map((s) => s.trim()) : [],
+          qualifications: qualifications ? qualifications.split(",").map((q) => q.trim()) : [],
+          experienceYears,
+          registrationNumber,
+        });
+
+        results.success.push({
+          name: `${firstName} ${lastName || ""}`.trim(),
+          email,
+          registrationNumber,
+        });
+      } catch (err) {
+        console.error("❌ Error creating teacher from Excel:", err.message);
+        results.failed.push({ row, reason: err.message });
+      }
+    }
+
+    res.status(200).json({
+      message: "Teacher Excel upload completed",
+      summary: {
+        total: rows.length,
+        success: results.success.length,
+        failed: results.failed.length,
+      },
+      results,
+    });
+  } catch (error) {
+    console.error("Error uploading teachers Excel:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
