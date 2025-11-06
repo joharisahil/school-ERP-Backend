@@ -188,7 +188,7 @@ export const getAllClasses = async (req, res, next) => {
 
     // Pagination
     const skip = (page - 1) * limit;
-    const classes = await Class.aggregate([...aggregatePipeline, { $skip: skip }, { $limit: limit }]);
+    const classes = await Class.aggregate([...aggregatePipeline, ]);
 
     const totalResults = await Class.countDocuments({ admin: adminId });
     const totalPages = Math.ceil(totalResults / limit);
