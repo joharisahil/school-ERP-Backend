@@ -126,31 +126,82 @@ export const createClass = async (req, res, next) => {
 //   }
 // };
 
+// export const getAllClasses = async (req, res, next) => {
+//   try {
+//     // ✅ Only admins can view their classes
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can view classes" });
+//     }
+
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const adminId = req.user.id; // logged-in admin's ID
+
+//     // ✅ Fetch only classes created by this admin
+//     const { results: classes, pagination } = await paginateQuery(
+//       Class,
+//       { admin: adminId }, // <--- FILTER ADDED HERE ✅
+//       [], // no populate for now
+//       page,
+//       limit
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       classes,
+//       pagination,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 export const getAllClasses = async (req, res, next) => {
   try {
-    // ✅ Only admins can view their classes
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can view classes" });
     }
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const adminId = req.user.id;
 
-    const adminId = req.user.id; // logged-in admin's ID
+    // Aggregation: get classes with student count
+    const aggregatePipeline = [
+      { $match: { admin: adminId } }, // Only classes of this admin
+      {
+        $lookup: {
+          from: "students",
+          localField: "_id",
+          foreignField: "classId",
+          as: "students",
+        },
+      },
+      {
+        $addFields: {
+          studentCount: { $size: "$students" },
+        },
+      },
+      { $project: { students: 0 } }, // Remove full students array
+      { $sort: { grade: 1, section: 1 } }, // Optional: sort
+    ];
 
-    // ✅ Fetch only classes created by this admin
-    const { results: classes, pagination } = await paginateQuery(
-      Class,
-      { admin: adminId }, // <--- FILTER ADDED HERE ✅
-      [], // no populate for now
-      page,
-      limit
-    );
+    // Pagination
+    const skip = (page - 1) * limit;
+    const classes = await Class.aggregate([...aggregatePipeline, { $skip: skip }, { $limit: limit }]);
+
+    const totalResults = await Class.countDocuments({ admin: adminId });
+    const totalPages = Math.ceil(totalResults / limit);
 
     res.status(200).json({
       success: true,
       classes,
-      pagination,
+      pagination: {
+        page,
+        limit,
+        totalPages,
+        totalResults,
+      },
     });
   } catch (err) {
     next(err);
