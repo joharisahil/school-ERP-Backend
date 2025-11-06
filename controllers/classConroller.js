@@ -6,6 +6,7 @@ import fs from "fs";
 import csv from "csv-parser";
 import bcrypt from "bcryptjs";
 import { paginateQuery } from "../utils/paginate.js";
+import mongoose from "mongoose";
 
 // export const createClass = async (req, res, next) => {
 //   try {
@@ -126,36 +127,6 @@ export const createClass = async (req, res, next) => {
 //   }
 // };
 
-// export const getAllClasses = async (req, res, next) => {
-//   try {
-//     // ✅ Only admins can view their classes
-//     if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can view classes" });
-//     }
-
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const adminId = req.user.id; // logged-in admin's ID
-
-//     // ✅ Fetch only classes created by this admin
-//     const { results: classes, pagination } = await paginateQuery(
-//       Class,
-//       { admin: adminId }, // <--- FILTER ADDED HERE ✅
-//       [], // no populate for now
-//       page,
-//       limit
-//     );
-
-//     res.status(200).json({
-//       success: true,
-//       classes,
-//       pagination,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 export const getAllClasses = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
@@ -164,14 +135,14 @@ export const getAllClasses = async (req, res, next) => {
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
     const adminId = req.user.id;
 
-    // Aggregation: get classes with student count
-    const aggregatePipeline = [
-      { $match: { admin: adminId } }, // Only classes of this admin
+    const result = await Class.aggregate([
+      { $match: { admin: new mongoose.Types.ObjectId(adminId) } },
       {
         $lookup: {
-          from: "students",
+          from: "students", // check your actual collection name
           localField: "_id",
           foreignField: "classId",
           as: "students",
@@ -182,31 +153,30 @@ export const getAllClasses = async (req, res, next) => {
           studentCount: { $size: "$students" },
         },
       },
-      { $project: { students: 0 } }, // Remove full students array
-      { $sort: { grade: 1, section: 1 } }, // Optional: sort
-    ];
+      { $project: { students: 0 } }, // remove large array
+      { $sort: { grade: 1, section: 1 } },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limit }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ]);
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    const classes = await Class.aggregate([...aggregatePipeline, ]);
-
-    const totalResults = await Class.countDocuments({ admin: adminId });
+    const classes = result[0].data;
+    const totalResults = result[0].totalCount[0]?.count || 0;
     const totalPages = Math.ceil(totalResults / limit);
 
     res.status(200).json({
       success: true,
       classes,
-      pagination: {
-        page,
-        limit,
-        totalPages,
-        totalResults,
-      },
+      pagination: { page, limit, totalPages, totalResults },
     });
   } catch (err) {
     next(err);
   }
 };
+
 
 export const assignStudentToClass = async (req, res, next) => {
   try {
