@@ -617,6 +617,7 @@ export const uploadStudentsExcel = async (req, res) => {
             balance: totalAmount,
             installments,
             createdBy: req.user.id,
+            admin: req.user.id, 
           });
 
           console.log(`✅ Fee structure assigned to ${student.firstName}`);
