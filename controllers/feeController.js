@@ -133,7 +133,8 @@ export const collectFee = async (req, res) => {
 
       feeRecord = await StudentFee.findOne({ studentId: student._id })
         .populate("studentId", "firstName lastName registrationNumber classId")
-        .populate("classId", "grade section");
+        .populate("classId", "grade section")
+        .populate("admin","schoolName");
       if (!feeRecord)
         return res
           .status(404)
@@ -184,6 +185,7 @@ export const collectFee = async (req, res) => {
       message: "Payment recorded successfully",
       warning,
       transactionId,
+      schoolName: feeRecord.admin?.schoolName || "N/A",
       registrationNumber:
         feeRecord.registrationNumber || feeRecord.studentId?.registrationNumber,
       studentName: feeRecord.studentId
@@ -370,7 +372,8 @@ export const getStudentFeeByRegNo = async (req, res) => {
     // 3️⃣ Fetch student fees
     const studentFees = await StudentFee.find({
       studentId: student._id,
-    }).populate("structureId", "session totalAmount amountPerInstallment");
+    }).populate("structureId", "session totalAmount amountPerInstallment")
+     .populate("admin", "schoolName");
 
     if (!studentFees.length) {
       return res
@@ -382,6 +385,7 @@ export const getStudentFeeByRegNo = async (req, res) => {
     const result = studentFees.map((fee) => ({
       _id: fee._id,
       session: fee.session,
+      schoolName: fee.admin?.schoolName || "N/A",
       registrationNumber: student.registrationNumber,
       studentName: `${student.firstName} ${student.lastName || ""}`.trim(),
       className: `${student.classId.grade} ${student.classId.section}`,
