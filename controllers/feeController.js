@@ -414,9 +414,11 @@ export const getAllStudentFees = async (req, res) => {
         .json({ error: "Only admins can view all student fees" });
     }
 
-    const allFees = await StudentFee.find({ admin: req.user.id })
-      .populate("studentId", "name rollNo classId")
-      .populate("classId", "name")
+    const allFees = await StudentFee.find({
+      admin: mongoose.Types.ObjectId(req.user._id), // Ensure ObjectId type
+    })
+      .populate("studentId", "firstName lastName registrationNumber classId phone")
+      .populate("classId", "grade section")
       .populate("structureId", "session totalAmount amountPerInstallment");
 
     res.status(200).json(allFees);
