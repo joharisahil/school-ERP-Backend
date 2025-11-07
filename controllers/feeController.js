@@ -450,7 +450,7 @@ export const searchFees = async (req, res) => {
       limit = 50,
     } = req.query;
 
-    const filter = {};
+    const filter = { admin: req.user._id };
 
     // ======= Class / Grade Filter =======
     if (grade || classId) {
