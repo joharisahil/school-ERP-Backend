@@ -2,6 +2,7 @@ import { FeeStructure } from "../models/feeStructureSchema.js";
 import { StudentFee } from "../models/studentFeeSchema.js";
 import { Student } from "../models/studentSchema.js"; // assuming you already have this
 import { Class } from "../models/classSchema.js";
+
 export const createAndAssignFeeStructure = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -206,7 +207,7 @@ export const getFeeStructures = async (req, res) => {
         .json({ error: "Only admins can view fee structures" });
     }
 
-    const query = {};
+    const query = {admin: req.user.id};
     if (req.query.session) {
       query.session = req.query.session;
     }
@@ -413,7 +414,7 @@ export const getAllStudentFees = async (req, res) => {
         .json({ error: "Only admins can view all student fees" });
     }
 
-    const allFees = await StudentFee.find()
+    const allFees = await StudentFee.find({ admin: req.user.id })
       .populate("studentId", "name rollNo classId")
       .populate("classId", "name")
       .populate("structureId", "session totalAmount amountPerInstallment");
