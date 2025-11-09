@@ -2,6 +2,7 @@ import { FeeStructure } from "../models/feeStructureSchema.js";
 import { StudentFee } from "../models/studentFeeSchema.js";
 import { Student } from "../models/studentSchema.js"; // assuming you already have this
 import { Class } from "../models/classSchema.js";
+
 export const createAndAssignFeeStructure = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -33,6 +34,7 @@ export const createAndAssignFeeStructure = async (req, res) => {
         0
       );
       const feeStructure = await FeeStructure.create({
+        admin: req.user.id,
         classId,
         session,
         monthDetails,
@@ -61,6 +63,7 @@ export const createAndAssignFeeStructure = async (req, res) => {
         );
 
         return {
+           admin: req.user.id, 
           studentId: student._id,
           registrationNumber: student.registrationNumber, // ✅ added field here
           classId,
@@ -130,7 +133,8 @@ export const collectFee = async (req, res) => {
 
       feeRecord = await StudentFee.findOne({ studentId: student._id })
         .populate("studentId", "firstName lastName registrationNumber classId")
-        .populate("classId", "grade section");
+        .populate("classId", "grade section")
+        .populate("admin","schoolName");
       if (!feeRecord)
         return res
           .status(404)
@@ -181,6 +185,7 @@ export const collectFee = async (req, res) => {
       message: "Payment recorded successfully",
       warning,
       transactionId,
+      schoolName: feeRecord.admin?.schoolName || "N/A",
       registrationNumber:
         feeRecord.registrationNumber || feeRecord.studentId?.registrationNumber,
       studentName: feeRecord.studentId
@@ -204,7 +209,7 @@ export const getFeeStructures = async (req, res) => {
         .json({ error: "Only admins can view fee structures" });
     }
 
-    const query = {};
+    const query = {admin: req.user.id};
     if (req.query.session) {
       query.session = req.query.session;
     }
@@ -367,7 +372,8 @@ export const getStudentFeeByRegNo = async (req, res) => {
     // 3️⃣ Fetch student fees
     const studentFees = await StudentFee.find({
       studentId: student._id,
-    }).populate("structureId", "session totalAmount amountPerInstallment");
+    }).populate("structureId", "session totalAmount amountPerInstallment")
+     .populate("admin", "schoolName");
 
     if (!studentFees.length) {
       return res
@@ -379,6 +385,7 @@ export const getStudentFeeByRegNo = async (req, res) => {
     const result = studentFees.map((fee) => ({
       _id: fee._id,
       session: fee.session,
+      schoolName: fee.admin?.schoolName || "N/A",
       registrationNumber: student.registrationNumber,
       studentName: `${student.firstName} ${student.lastName || ""}`.trim(),
       className: `${student.classId.grade} ${student.classId.section}`,
@@ -411,7 +418,7 @@ export const getAllStudentFees = async (req, res) => {
         .json({ error: "Only admins can view all student fees" });
     }
 
-    const allFees = await StudentFee.find()
+    const allFees = await StudentFee.find({ admin: req.user.id })
       .populate("studentId", "name rollNo classId")
       .populate("classId", "name")
       .populate("structureId", "session totalAmount amountPerInstallment");
@@ -447,7 +454,7 @@ export const searchFees = async (req, res) => {
       limit = 50,
     } = req.query;
 
-    const filter = {};
+    const filter = { admin: req.user.id };
 
     // ======= Class / Grade Filter =======
     if (grade || classId) {

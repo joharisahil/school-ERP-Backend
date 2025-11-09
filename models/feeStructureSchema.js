@@ -14,6 +14,12 @@ const monthDetailSchema = new mongoose.Schema(
 
 const feeStructureSchema = new mongoose.Schema(
   {
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
     classId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Class",

@@ -3,34 +3,54 @@ import mongoose from "mongoose";
 import validator from "validator";
 import bcrypt from "bcrypt";
 
-const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: true,
-    unique: true, // ← remove this if you want school-level uniqueness
-    lowercase: true,
-    validate: [validator.isEmail, "Please provide a valid email"],
+const userSchema = new mongoose.Schema(
+  {
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      validate: [validator.isEmail, "Please provide a valid email"],
+    },
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+    },
+    role: {
+      type: String,
+      enum: ["admin", "student", "teacher"],
+      required: true,
+    },
+    schoolName: {
+      type: String,
+      required: function () {
+        return this.role === "admin";
+      },
+      trim: true,
+    },
+    planDays: {
+      type: Number,
+      required: function () {
+        return this.role === "admin";
+      },
+      min: [0, "Plan days cannot be negative"],
+      max: [360, "Plan days cannot exceed 360"],
+      default: 360, // total plan limit
+    },
   },
-  password: {
-    type: String,
-    required: true,
-    minlength: 6,
-  },
-  role: {
-    type: String,
-    enum: ["admin", "student", "teacher"],
-    required: true,
-  },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-userSchema.pre("save", async function(next){
+// Hash password before saving
+userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-userSchema.methods.isValidPassword = function(password) {
+// Compare password
+userSchema.methods.isValidPassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
 
-export const User = mongoose.model("User", userSchema); 
+export const User = mongoose.model("User", userSchema);

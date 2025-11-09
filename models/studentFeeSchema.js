@@ -64,6 +64,12 @@ const scholarshipSchema = new mongoose.Schema(
 
 const studentFeeSchema = new mongoose.Schema(
   {
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
     studentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student",

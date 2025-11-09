@@ -19,7 +19,7 @@ const teacherSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      required: true,
+      //required: true,
     },
     registrationNumber: {
       type: String,
@@ -41,7 +41,7 @@ const teacherSchema = new mongoose.Schema(
     },
     dob: {
       type: Date,
-      required: true,
+      //required: true,
     },
     address: {
       type: String,
@@ -49,11 +49,11 @@ const teacherSchema = new mongoose.Schema(
     },
     subjects: {
       type: [String], // array of subjects
-      required: true,
+      //required: true,
     },
     qualifications: {
       type: [String], // multiple degrees
-      required: true,
+      //required: true,
     },
     experienceYears: {
       type: Number,
@@ -66,8 +66,15 @@ const teacherSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-teacherSchema.index({ admin: 1, email: 1 }, { unique: true });
+teacherSchema.index(
+  { admin: 1, email: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
+);
 teacherSchema.pre(/^find/, function (next) {
+  this.where({ isDeleted: false });
+  next();
+});
+teacherSchema.pre(/^findOneAnd/, function (next) {
   this.where({ isDeleted: false });
   next();
 });

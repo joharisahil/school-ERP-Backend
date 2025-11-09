@@ -218,6 +218,7 @@ export const getStudentsWithScholarships = async (req, res) => {
 
     // Find all student fees where scholarships array is not empty
     const studentsWithScholarships = await StudentFee.find({
+      admin: req.user.id, 
       "scholarships.0": { $exists: true },
     })
       .populate("studentId", "firstName lastName rollNo classId")

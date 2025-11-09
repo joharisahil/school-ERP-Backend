@@ -6,41 +6,8 @@ import fs from "fs";
 import csv from "csv-parser";
 import bcrypt from "bcryptjs";
 import { paginateQuery } from "../utils/paginate.js";
+import mongoose from "mongoose";
 
-// export const createClass = async (req, res, next) => {
-//   try {
-//      if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can register students" });
-//     }
-//     const { grade, section } = req.body;
-
-//     if (!grade || !section) {
-//       return res.status(400).json({ success: false, message: "Please provide grade and section" });
-//     }
-
-//     const newClass = await Class.create({ grade, section });
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Class Created!",
-//       class: newClass,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-// export const getAllClasses = async (req, res, next) => {
-//   try {
-//   const classes = await Class.find();
-//   res.status(200).json({
-//     success: true,
-//     classes,
-//   });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 export const createClass = async (req, res, next) => {
   try {
     // ✅ Ensure only admins can create a class
@@ -100,62 +67,57 @@ export const createClass = async (req, res, next) => {
   }
 };
 
-// export const getAllClasses = async (req, res, next) => {
-//   try {
-//      if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can register students" });
-//     }
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const { results: classes, pagination } = await paginateQuery(
-//       Class,
-//       {},
-//       [], // no populate here, unless you want to add teachers/students later
-//       page,
-//       limit
-//     );
-
-//     res.status(200).json({
-//       success: true,
-//       classes,
-//       pagination,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 
 export const getAllClasses = async (req, res, next) => {
   try {
-    // ✅ Only admins can view their classes
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Only admins can view classes" });
     }
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const adminId = req.user.id;
 
-    const adminId = req.user.id; // logged-in admin's ID
+    const result = await Class.aggregate([
+      { $match: { admin: new mongoose.Types.ObjectId(adminId) } },
+      {
+        $lookup: {
+          from: "students", // check your actual collection name
+          localField: "_id",
+          foreignField: "classId",
+          as: "students",
+        },
+      },
+      {
+        $addFields: {
+          studentCount: { $size: "$students" },
+        },
+      },
+      { $project: { students: 0 } }, // remove large array
+      { $sort: { grade: 1, section: 1 } },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limit }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ]);
 
-    // ✅ Fetch only classes created by this admin
-    const { results: classes, pagination } = await paginateQuery(
-      Class,
-      { admin: adminId }, // <--- FILTER ADDED HERE ✅
-      [], // no populate for now
-      page,
-      limit
-    );
+    const classes = result[0].data;
+    const totalResults = result[0].totalCount[0]?.count || 0;
+    const totalPages = Math.ceil(totalResults / limit);
 
     res.status(200).json({
       success: true,
       classes,
-      pagination,
+      pagination: { page, limit, totalPages, totalResults },
     });
   } catch (err) {
     next(err);
   }
 };
+
 
 export const assignStudentToClass = async (req, res, next) => {
   try {

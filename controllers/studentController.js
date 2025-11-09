@@ -139,6 +139,7 @@ export const createStudent = async (req, res) => {
       );
 
       const studentFee = await StudentFee.create({
+        admin: req.user.id,
         studentId: student._id,
         registrationNumber: student.registrationNumber,
         classId,
@@ -616,6 +617,7 @@ export const uploadStudentsExcel = async (req, res) => {
             balance: totalAmount,
             installments,
             createdBy: req.user.id,
+            admin: req.user.id, 
           });
 
           console.log(`✅ Fee structure assigned to ${student.firstName}`);
