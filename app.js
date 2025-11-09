@@ -80,6 +80,10 @@ app.get("/api/v1/profile", verifyToken, (req, res) => {
   });
 });
 
+app.get("/api/v1/health", (req, res) => {
+  res.status(200).json({ message: "✅ Server is alive", time: new Date().toISOString() });
+});
+
 dbConnection();
 
 export default app;
