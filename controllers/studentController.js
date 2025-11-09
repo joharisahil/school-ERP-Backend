@@ -13,8 +13,6 @@ const generateRegistrationNumber = () => {
   return `REG-${timestamp}${random}`;
 };
 
-
-
 const generateStudentEmail = (firstName, lastName, registrationNumber, schoolName) => {
   const cleanFirstName = firstName.toLowerCase().replace(/\s+/g, '');
   const cleanLastName = (lastName || "").toLowerCase().replace(/\s+/g, '');
@@ -26,7 +24,6 @@ const generateStudentEmail = (firstName, lastName, registrationNumber, schoolNam
   return `${cleanFirstName}${cleanLastName}${regNoPart}@${cleanSchoolName}.jam`;
 };
 
-// ===== Main Controller =====
 export const createStudent = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -177,6 +174,44 @@ export const createStudent = async (req, res) => {
       });
     }
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getStudentById = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view student details" });
+    }
+
+    const { id } = req.params;
+
+    // Fetch student by ID and populate class details
+    const student = await Student.findById(id)
+      .populate("classId", "grade section name")
+      .populate("user", "email role");
+
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    // Fetch fee details (if any)
+    const feeDetails = await StudentFee.findOne({ studentId: id })
+      .populate("structureId", "session totalAmount amountPerInstallment monthDetails")
+      .lean();
+
+    // Prepare combined response
+    const response = {
+      ...student.toObject(),
+      feeDetails: feeDetails || null,
+    };
+
+    res.status(200).json({
+      success: true,
+      student: response,
+    });
+  } catch (error) {
+    console.error("Error fetching student details:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
