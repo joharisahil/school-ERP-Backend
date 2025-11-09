@@ -4,7 +4,7 @@ import axios from "axios";
 
 const BASE_URL = process.env.BASE_URL || `https://school-erp-backend-mjwc.onrender.com`;
 
-// 🧩 Keep Alive Function
+// Keep Alive Function
 const keepServerAlive = () => {
   const HEALTH_URL = `${BASE_URL}/api/v1/health`;
 
@@ -17,7 +17,7 @@ const keepServerAlive = () => {
     }
   };
 
-  // 🔹 Wait 10s before first ping (let server boot fully)
+  // Wait 10s before first ping (let server boot fully)
   setTimeout(() => {
     ping();
     setInterval(ping, 5 * 60 * 1000); // every 5 minutes
