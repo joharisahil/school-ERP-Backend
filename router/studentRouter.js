@@ -7,7 +7,7 @@ const upload = multer({ dest: "uploads/" });
 
 router.get('/getall', verifyToken, getAllStudents);
 router.post('/create', verifyToken, createStudent);
-router.get("/:id", verifyToken, getStudentById);
+router.get("get/:id", verifyToken, getStudentById);
 router.put("/:id", verifyToken,  updateStudent);
 router.delete("/delete/:id", verifyToken, deleteStudent);
 router.get("/query/search", verifyToken, searchStudents);
