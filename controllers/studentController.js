@@ -17,7 +17,7 @@ const generateRegistrationNumber = () => {
 
 const generateStudentEmail = (firstName, lastName, registrationNumber, schoolName) => {
   const cleanFirstName = firstName.toLowerCase().replace(/\s+/g, '');
-  const cleanLastName = lastName.toLowerCase().replace(/\s+/g, '');
+  const cleanLastName = (lastName || "").toLowerCase().replace(/\s+/g, '');
   const cleanSchoolName = schoolName.toLowerCase().replace(/\s+/g, '');
 
   // remove "REG-" before using in email
@@ -555,6 +555,12 @@ export const uploadStudentsExcel = async (req, res) => {
           role: "student",
         });
 
+        let parsedDob = null;
+        if (dob) {
+        const [day, month, year] = dob.split(/[./-]/);
+        if (day && month && year) parsedDob = new Date(`${year}-${month}-${day}`);
+        }
+
         // ✅ Create student record
         const student = await Student.create({
           user: user._id,
@@ -563,7 +569,7 @@ export const uploadStudentsExcel = async (req, res) => {
           lastName,
           email: studentEmail,
           phone,
-          dob,
+          dob: parsedDob,
           registrationNumber,
           address,
           aadhaarNumber,
