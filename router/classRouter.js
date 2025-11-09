@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllClasses, createClass, assignStudentToClass, bulkAssignStudents, uploadCSV } from "../controllers/classConroller.js";
+import { getAllClasses, createClass, assignStudentToClass, bulkAssignStudents, uploadCSV } from "../controllers/classController.js";
 import { verifyToken } from "../middlewares/authMiddleware.js";
 import multer from "multer";
 const upload = multer({ dest: "uploads/" })

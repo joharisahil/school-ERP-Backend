@@ -475,7 +475,7 @@ export const uploadStudentsExcel = async (req, res) => {
     const sheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sheet);
 
-    const schoolName = "JamAcademy";
+    const schoolName = "jamschool";
     const defaultPassword = "student@123";
 
     const results = {
