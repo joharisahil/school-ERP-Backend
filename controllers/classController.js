@@ -108,10 +108,15 @@ export const getAllClasses = async (req, res, next) => {
     const totalResults = result[0].totalCount[0]?.count || 0;
     const totalPages = Math.ceil(totalResults / limit);
 
+    const allClasses = await Class.find({ admin: adminId })
+      .sort({ grade: 1, section: 1 })
+      .select("-students");
+
     res.status(200).json({
       success: true,
       classes,
       pagination: { page, limit, totalPages, totalResults },
+      data: allClasses,
     });
   } catch (err) {
     next(err);
