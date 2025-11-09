@@ -79,11 +79,12 @@ export const getAllClasses = async (req, res, next) => {
     const skip = (page - 1) * limit;
     const adminId = req.user.id;
 
+    // 🔹 Paginated classes
     const result = await Class.aggregate([
       { $match: { admin: new mongoose.Types.ObjectId(adminId) } },
       {
         $lookup: {
-          from: "students", // check your actual collection name
+          from: "students",
           localField: "_id",
           foreignField: "classId",
           as: "students",
@@ -94,7 +95,7 @@ export const getAllClasses = async (req, res, next) => {
           studentCount: { $size: "$students" },
         },
       },
-      { $project: { students: 0 } }, // remove large array
+      { $project: { students: 0 } },
       { $sort: { grade: 1, section: 1 } },
       {
         $facet: {
@@ -108,15 +109,17 @@ export const getAllClasses = async (req, res, next) => {
     const totalResults = result[0].totalCount[0]?.count || 0;
     const totalPages = Math.ceil(totalResults / limit);
 
+    // 🔹 Full list (non-paginated)
     const allClasses = await Class.find({ admin: adminId })
       .sort({ grade: 1, section: 1 })
       .select("-students");
 
+    // ✅ Return both paginated + full list
     res.status(200).json({
       success: true,
-      classes,
+      classes, // paginated data
       pagination: { page, limit, totalPages, totalResults },
-      data: allClasses,
+      data: allClasses, // full list
     });
   } catch (err) {
     next(err);
