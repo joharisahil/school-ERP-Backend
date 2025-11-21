@@ -692,6 +692,93 @@ export const uploadStudentsExcel = async (req, res) => {
   }
 };
 
+// export const testUploadStudentsExcel = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can test excel upload" });
+//     }
+
+//     if (!req.file) {
+//       return res.status(400).json({ error: "Please upload an Excel file" });
+//     }
+
+//     const workbook = XLSX.readFile(req.file.path);
+//     const sheetName = workbook.SheetNames[0];
+//     const sheet = workbook.Sheets[sheetName];
+//     const rows = XLSX.utils.sheet_to_json(sheet);
+
+//     const results = { valid: [], invalid: [] };
+
+//     for (const row of rows) {
+//       try {
+//         const {
+//           firstName,
+//           lastName,
+//           phone,
+//           dob,
+//           address,
+//           aadhaarNumber,
+//           caste,
+//           contactEmail,
+//           contactName,
+//           contactPhone,
+//           relation,
+//           fatherName,
+//           motherName,
+//           fatherphone,
+//           motherphone,
+//           fatherEmail,
+//           motherEmail,
+//           fatherOccupation,
+//           motherOccupation,
+//         } = row;
+
+//         // Required field check
+//         if (!firstName || !phone) {
+//           results.invalid.push({
+//             row,
+//             reason: "Missing required fields (firstName, phone)",
+//           });
+//           continue;
+//         }
+
+//         // Validate DOB format
+//         if (dob) {
+//           const [day, month, year] = dob.split(/[./-]/);
+//           if (!day || !month || !year) {
+//             results.invalid.push({
+//               row,
+//               reason: "Invalid DOB format",
+//             });
+//             continue;
+//           }
+//         }
+
+//         // Valid row response (only echo row back)
+//         results.valid.push({
+//           row,
+//         });
+//       } catch (err) {
+//         results.invalid.push({
+//           row,
+//           reason: err.message,
+//         });
+//       }
+//     }
+
+//     res.status(200).json({
+//       message: "Excel test completed (no data saved)",
+//       totalRows: rows.length,
+//       valid: results.valid.length,
+//       invalid: results.invalid.length,
+//       results,
+//     });
+//   } catch (error) {
+//     console.error("Error testing Excel:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// };
+
 export const testUploadStudentsExcel = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -733,31 +820,31 @@ export const testUploadStudentsExcel = async (req, res) => {
           motherOccupation,
         } = row;
 
-        // Required field check
-        if (!firstName || !phone) {
+        const reasons = [];
+
+        // Required fields
+        if (!firstName) reasons.push("firstName is missing");
+        if (!phone) reasons.push("phone is missing");
+
+        // DOB validation
+        if (dob) {
+          const [day, month, year] = dob.toString().split(/[./-]/);
+          if (!day || !month || !year) {
+            reasons.push("DOB format is invalid");
+          }
+        }
+
+        // If invalid, push with detailed reason
+        if (reasons.length > 0) {
           results.invalid.push({
             row,
-            reason: "Missing required fields (firstName, phone)",
+            reason: reasons.join(", "),
           });
           continue;
         }
 
-        // Validate DOB format
-        if (dob) {
-          const [day, month, year] = dob.split(/[./-]/);
-          if (!day || !month || !year) {
-            results.invalid.push({
-              row,
-              reason: "Invalid DOB format",
-            });
-            continue;
-          }
-        }
-
-        // Valid row response (only echo row back)
-        results.valid.push({
-          row,
-        });
+        // Valid row
+        results.valid.push({ row });
       } catch (err) {
         results.invalid.push({
           row,
