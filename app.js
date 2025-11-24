@@ -20,6 +20,7 @@ import attendanceRouter from "./router/attendanceRouter.js";
 import usersRouter from "./router/usersRouter.js";
 import adminRegisterRouter from "./router/adminRegisterRouter.js";
 import protectedRoutes from "./router/protectedRoutes.js";
+
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
 import { verifyToken } from "./middlewares/authMiddleware.js";
@@ -28,32 +29,34 @@ import "./cron/deleteOldTeachers.js";
 const app = express();
 config({ path: "./config/config.env" });
 
-// app.use(
-//     cors({
-//         origin: [process.env.FRONTEND_URL],
-//         methods: ["GET", "POST", "PUT", "DELETE"],
-
-//     })
-// );
+// --------------------
+// CORS CONFIG (FIXED)
+// --------------------
+const allowedOrigins = process.env.FRONTEND_URL.split(",");
 
 app.use(
   cors({
-    origin: [process.env.FRONTEND_URL],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow tools & server-side calls
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS: " + origin));
+    },
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
 
+// --------------------
+// CORE MIDDLEWARES
+// --------------------
 app.use(cookieParser());
-
-app.use((err, req, res, next) => {
-  errorHandler(err, req, res, next);
-});
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --------------------
+// ROUTES
+// --------------------
 app.use("/api/v1/students", studentRouter);
 app.use("/api/v1/teachers", teacherRouter);
 app.use("/api/v1/assignments", assignmentRouter);
@@ -68,10 +71,11 @@ app.use("/api/v1/timetable", timetableRouter);
 app.use("/api/v1/attendance", attendanceRouter);
 
 app.use("/api/v1/fees", feeRouter);
-
 app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/dashboard", protectedRoutes);
 app.use("/api/v1/register", adminRegisterRouter);
+
+// Profile route
 app.get("/api/v1/profile", verifyToken, (req, res) => {
   res.json({
     id: req.user.id,
@@ -80,10 +84,20 @@ app.get("/api/v1/profile", verifyToken, (req, res) => {
   });
 });
 
+// Health route
 app.get("/api/v1/health", (req, res) => {
-  res.status(200).json({ message: "✅ Server is alive", time: new Date().toISOString() });
+  res.status(200).json({
+    message: "✅ Server is alive",
+    time: new Date().toISOString(),
+  });
 });
 
+// --------------------
+// ERROR HANDLER (MUST BE LAST)
+// --------------------
+app.use(errorHandler);
+
+// DB Connection
 dbConnection();
 
 export default app;
