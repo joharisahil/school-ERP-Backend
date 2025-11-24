@@ -1,2 +1,19 @@
+# ignore any env file anywhere
+*.env
+*.env.*
 .env
+.env.*
 config.env
+config/*.env
+config/config.env
+
+# Node modules
+node_modules/
+
+# logs
+logs
+*.log
+
+# build
+dist/
+build/
