@@ -120,11 +120,18 @@ export const getAdminKPI = async (req, res, next) => {
     const studentFees = await StudentFee.find({ admin: adminId });
 
     let totalPending = 0;
+    let totalCollected = 0;
+    let check=0;
+    let netPayabletotal=0;
     studentFees.forEach((fee) => {
       // Use the `balance` field directly (already stores remaining fee)
       totalPending += fee.balance || 0;
+      netPayabletotal +=fee.netPayable || 0;
+      fee.payments.forEach((p) => {
+        totalCollected += p.amount || 0;
+      });
     });
-
+    check = netPayabletotal - (totalCollected+totalPending);
     // ✅ School info from admin profile
     const { schoolName, planDays } = admin;
 
@@ -137,6 +144,8 @@ export const getAdminKPI = async (req, res, next) => {
         teachersCount,
         classesCount,
         feesPending: totalPending,
+        feesCollected : totalCollected,
+        feesCheck :check,
       },
     });
   } catch (err) {
