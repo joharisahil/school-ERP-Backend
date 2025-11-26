@@ -177,6 +177,44 @@ export const createStudent = async (req, res) => {
   }
 };
 
+// export const getStudentById = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can view student details" });
+//     }
+
+//     const { id } = req.params;
+
+//     // Fetch student by ID and populate class details
+//     const student = await Student.findById(id)
+//       .populate("classId", "grade section name")
+//       .populate("user", "email role");
+
+//     if (!student) {
+//       return res.status(404).json({ error: "Student not found" });
+//     }
+
+//     // Fetch fee details (if any)
+//     const feeDetails = await StudentFee.findOne({ studentId: id })
+//       .populate("structureId", "session totalAmount amountPerInstallment monthDetails")
+//       .lean();
+
+//     // Prepare combined response
+//     const response = {
+//       ...student.toObject(),
+//       feeDetails: feeDetails || null,
+//     };
+
+//     res.status(200).json({
+//       success: true,
+//       student: response,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching student details:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// };
+
 export const getStudentById = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
@@ -185,7 +223,7 @@ export const getStudentById = async (req, res) => {
 
     const { id } = req.params;
 
-    // Fetch student by ID and populate class details
+    // Fetch student by ID
     const student = await Student.findById(id)
       .populate("classId", "grade section name")
       .populate("user", "email role");
@@ -194,12 +232,14 @@ export const getStudentById = async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    // Fetch fee details (if any)
+    // Fetch fee details with scholarship info
     const feeDetails = await StudentFee.findOne({ studentId: id })
       .populate("structureId", "session totalAmount amountPerInstallment monthDetails")
+      .populate("classId", "grade section name")
+      .populate("admin", "name email")   // Who assigned
       .lean();
 
-    // Prepare combined response
+    // Prepare combined output
     const response = {
       ...student.toObject(),
       feeDetails: feeDetails || null,
@@ -214,6 +254,7 @@ export const getStudentById = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 export const getAllStudents = async (req, res, next) => {
   try {
