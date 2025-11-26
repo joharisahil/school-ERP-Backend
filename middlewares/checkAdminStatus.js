@@ -4,6 +4,7 @@ export const checkAdminStatus = async (req, res, next) => {
     console.log("here i m doing chull");
   try {
     const user = await User.findById({ email: req.user.email });
+    console.log(user);
 
     if (!user)
       return res.status(404).json({ error: "User not found" });
