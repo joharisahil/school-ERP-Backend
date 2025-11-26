@@ -3,7 +3,7 @@ import { User } from "../models/userRegisterSchema.js";
 export const checkAdminStatus = async (req, res, next) => {
     console.log("here i m doing chull");
   try {
-    const user = await User.findById({ email: req.user.email });
+    const user = await User.findOne({ email: req.user.email });
     console.log(user);
 
     if (!user)
