@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "student", "teacher"],
+      enum: ["superadmin","admin", "student", "teacher"],
       required: true,
     },
     schoolName: {
@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema(
       min: [0, "Plan days cannot be negative"],
       max: [360, "Plan days cannot exceed 360"],
       default: 360, // total plan limit
+    },
+    isActive: {
+      type: Boolean,
+      default: true, // admin is active by default
     },
   },
   { timestamps: true }

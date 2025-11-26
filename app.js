@@ -6,7 +6,7 @@ import { dbConnection } from "./database/dbConnection.js";
 import studentRouter from "./router/studentRouter.js";
 import teacherRouter from "./router/teacherRouter.js";
 import assignmentRouter from "./router/assignmentRouter.js";
-
+import superAdminRouter from "./router/superAdminRouter.js";
 import announcementRouter from "./router/announcementRouter.js";
 import classRouter from "./router/classRouter.js";
 import subjectRouter from "./router/subjectRouter.js";
@@ -25,7 +25,7 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
 import { verifyToken } from "./middlewares/authMiddleware.js";
 import "./cron/deleteOldTeachers.js";
-
+import "./cron/deductPlanDays.js";
 const app = express();
 config({ path: "./config/config.env" });
 
@@ -60,7 +60,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1/students", studentRouter);
 app.use("/api/v1/teachers", teacherRouter);
 app.use("/api/v1/assignments", assignmentRouter);
-
+app.use("/api/v1/superadmin", superAdminRouter);
 app.use("/api/v1/announcements", announcementRouter);
 app.use("/api/v1/class", classRouter);
 app.use("/api/v1/subject", subjectRouter);
