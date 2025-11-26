@@ -25,6 +25,22 @@ export const adminSignIn = async (req, res, next) => {
         .json({ success: false, message: "Invalid email or password" });
     }
 
+    if (existingAdmin.role === "admin") {
+      if (existingAdmin.isActive === false) {
+        return res.status(403).json({
+          success: false,
+          message: "Admin account is disabled by Super Admin",
+        });
+      }
+
+      if (existingAdmin.isPlanExpired === true) {
+        return res.status(403).json({
+          success: false,
+          message: "Your plan has expired. Please renew to continue.",
+        });
+      }
+    }
+
     const isPasswordValid = await existingAdmin.isValidPassword(password);
     if (!isPasswordValid) {
       return res
