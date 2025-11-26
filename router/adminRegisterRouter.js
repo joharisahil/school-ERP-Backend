@@ -9,7 +9,7 @@ import { verifyToken } from "../middlewares/authMiddleware.js";
 import { checkAdminStatus } from "../middlewares/checkAdminStatus.js";
 const router = express.Router();
 
-router.post("/signin",checkAdminStatus, adminSignIn);
+router.post("/signin", checkAdminStatus, adminSignIn);
 router.post("/admin", adminRegister);
 router.post("/logout", verifyToken, logout);
 router.get("/admin/kpi", verifyToken, getAdminKPI);

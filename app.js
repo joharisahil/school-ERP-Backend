@@ -32,7 +32,9 @@ config({ path: "./config/config.env" });
 // --------------------
 // CORS CONFIG (FIXED)
 // --------------------
-const allowedOrigins = process.env.FRONTEND_URL.split(",");
+//const allowedOrigins = process.env.FRONTEND_URL.split(",");
+
+const allowedOrigins = (process.env.FRONTEND_URL || "").split(",");
 
 app.use(
   cors({
