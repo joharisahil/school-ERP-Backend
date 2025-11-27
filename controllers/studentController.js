@@ -265,71 +265,162 @@ export const getAllStudents = async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    // Fetch all students for pagination
+    const { grade, section, scholarship, search } = req.query;
+
+    // ---------------------------
+    // 1. BUILD FILTER FOR STUDENT
+    // ---------------------------
+    const filter = { admin: req.user.id };
+
+    // 🔥 CLASS FILTER (grade + section)
+    let classQuery = { admin: req.user.id };
+
+    if (grade) classQuery.grade = grade;
+    if (section) classQuery.section = section;
+
+    if (grade || section) {
+      const classes = await Class.find(classQuery).select("_id");
+
+      if (classes.length === 0) {
+        return res.status(200).json({
+          success: true,
+          students: [],
+          pagination: { currentPage: page, totalPages: 1, total: 0 },
+          totalStudents: 0,
+          totalScholarshipStudents: 0,
+          scholarshipPercentage: "0%",
+        });
+      }
+
+      const classIds = classes.map(c => c._id);
+      filter.classId = { $in: classIds };
+    }
+
+    // 🔥 SEARCH FILTER
+    if (search) {
+      filter.$or = [
+        { firstName: new RegExp(search, "i") },
+        { lastName: new RegExp(search, "i") },
+        { registrationNumber: new RegExp(search, "i") },
+        { email: new RegExp(search, "i") },
+      ];
+    }
+
+    // --------------------------------------------
+    // 2. FETCH ALL MATCHING STUDENTS BEFORE PAGING
+    // --------------------------------------------
+    const allMatchingStudents = await Student.find(filter).select("_id");
+    const allMatchingIds = allMatchingStudents.map(s => s._id);
+
+    // If no student matches any filter → return empty result
+    if (allMatchingIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        students: [],
+        pagination: { currentPage: page, totalPages: 1, total: 0 },
+        totalStudents: 0,
+        totalScholarshipStudents: 0,
+        scholarshipPercentage: "0%",
+      });
+    }
+
+    // ---------------------------------------------------
+    // 3. SCHOLARSHIP FILTER (APPLIED BEFORE PAGINATION)
+    // ---------------------------------------------------
+    let scholarshipStudentIds = [];
+
+    if (scholarship === "yes") {
+      const scholarshipFees = await StudentFee.find({
+        studentId: { $in: allMatchingIds },
+        "scholarships.0": { $exists: true }
+      }).select("studentId");
+
+      scholarshipStudentIds = scholarshipFees.map(f => f.studentId.toString());
+
+      // No scholarship students found
+      if (scholarshipStudentIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          students: [],
+          pagination: { currentPage: page, totalPages: 1, total: 0 },
+          totalStudents: allMatchingIds.length,
+          totalScholarshipStudents: 0,
+          scholarshipPercentage: "0%",
+        });
+      }
+
+      // Merge scholarship filter with student filter
+      filter._id = { $in: scholarshipStudentIds };
+    }
+
+    // ------------------------------------------
+    // 4. PAGINATE FINAL FILTERED STUDENTS
+    // ------------------------------------------
     const { results: students, pagination } = await paginateQuery(
       Student,
-      { admin: req.user.id },
+      filter,
       [{ path: "classId" }],
       page,
       limit
     );
 
-    // Get all student IDs
-    const studentIds = students.map((s) => s._id);
+    const studentIdsOnPage = students.map(s => s._id);
 
-    // Find student fees that have scholarships for these students
+    // ------------------------------------------
+    // 5. FETCH SCHOLARSHIP INFO ONLY FOR PAGE
+    // ------------------------------------------
     const studentFees = await StudentFee.find({
-      studentId: { $in: studentIds },
-      "scholarships.0": { $exists: true },
-    })
-      .populate("studentId", "firstName lastName rollNo classId")
-      .populate("classId", "name")
-      .populate(
-        "structureId",
-        "session totalAmount amountPerInstallment scholarships"
-      );
+      studentId: { $in: studentIdsOnPage }
+    }).populate("structureId");
 
-    // Map scholarships by studentId for quick lookup
     const scholarshipMap = {};
     studentFees.forEach((fee) => {
-      scholarshipMap[fee.studentId._id] = {
+      scholarshipMap[fee.studentId] = {
         scholarships: fee.scholarships,
-        totalAmount: fee.structureId?.totalAmount || 0,
-        session: fee.structureId?.session || "N/A",
-        amountPerInstallment: fee.structureId?.amountPerInstallment || 0,
-        createdAt: fee.createdAt,
-        updatedAt: fee.updatedAt,
+        amountPerInstallment: fee.structureId?.amountPerInstallment,
+        totalAmount: fee.structureId?.totalAmount,
+        session: fee.structureId?.session,
       };
     });
 
-    // Merge scholarship info into students
-    const mergedStudents = students.map((student) => ({
-      ...student.toObject(),
-      scholarshipInfo: scholarshipMap[student._id] || null,
+    // Merge scholarship info into student objects
+    const merged = students.map((st) => ({
+      ...st.toObject(),
+      scholarshipInfo: scholarshipMap[st._id] || null,
     }));
 
-    // Count total scholarship students
-    const totalScholarshipStudents = studentFees.length;
-    const totalStudents = await Student.countDocuments({ admin: req.user.id });
+    // ------------------------------------------
+    // 6. KPI COUNTS
+    // ------------------------------------------
+    const totalStudents = allMatchingIds.length;
 
-    // Calculate percentage
+    const totalScholarshipStudents = await StudentFee.countDocuments({
+      studentId: { $in: allMatchingIds },
+      "scholarships.0": { $exists: true }
+    });
+
     const scholarshipPercentage =
       totalStudents > 0
         ? ((totalScholarshipStudents / totalStudents) * 100).toFixed(2)
-        : 0;
+        : "0";
 
+    // ------------------------------------------
+    // 7. FINAL RESPONSE
+    // ------------------------------------------
     res.status(200).json({
       success: true,
+      students: merged,
+      pagination,
       totalStudents,
       totalScholarshipStudents,
       scholarshipPercentage: `${scholarshipPercentage}%`,
-      students: mergedStudents,
-      pagination,
     });
+
   } catch (err) {
     next(err);
   }
 };
+
 
 export const updateStudent = async (req, res) => {
   try {
