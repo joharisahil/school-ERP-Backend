@@ -508,19 +508,24 @@ export const searchFees = async (req, res) => {
     // ======= Student Name / Registration Number Filter =======
     if (registrationNumber || studentName) {
       const studentFilter = {};
+      let students = [];
 
       if (registrationNumber) {
         studentFilter.registrationNumber = registrationNumber;
       }
 
-      let students = [];
-
       if (studentName) {
         students = await Student.find({
           $expr: {
             $regexMatch: {
-              input: { $concat: ["$firstName", " ", "$lastName"] },
-              regex: studentName,
+              input: {
+                $concat: [
+                  { $ifNull: ["$firstName", ""] },
+                  " ",
+                  { $ifNull: ["$lastName", ""] },
+                ],
+              },
+              regex: studentName.replace(/\s+/g, ".*"),
               options: "i",
             },
           },
