@@ -63,7 +63,7 @@ export const createAndAssignFeeStructure = async (req, res) => {
         );
 
         return {
-           admin: req.user.id, 
+          admin: req.user.id,
           studentId: student._id,
           registrationNumber: student.registrationNumber, // ✅ added field here
           classId,
@@ -134,7 +134,7 @@ export const collectFee = async (req, res) => {
       feeRecord = await StudentFee.findOne({ studentId: student._id })
         .populate("studentId", "firstName lastName registrationNumber classId")
         .populate("classId", "grade section")
-        .populate("admin","schoolName");
+        .populate("admin", "schoolName");
       if (!feeRecord)
         return res
           .status(404)
@@ -209,7 +209,7 @@ export const getFeeStructures = async (req, res) => {
         .json({ error: "Only admins can view fee structures" });
     }
 
-    const query = {admin: req.user.id};
+    const query = { admin: req.user.id };
     if (req.query.session) {
       query.session = req.query.session;
     }
@@ -372,8 +372,9 @@ export const getStudentFeeByRegNo = async (req, res) => {
     // 3️⃣ Fetch student fees
     const studentFees = await StudentFee.find({
       studentId: student._id,
-    }).populate("structureId", "session totalAmount amountPerInstallment")
-     .populate("admin", "schoolName");
+    })
+      .populate("structureId", "session totalAmount amountPerInstallment")
+      .populate("admin", "schoolName");
 
     if (!studentFees.length) {
       return res
@@ -389,7 +390,7 @@ export const getStudentFeeByRegNo = async (req, res) => {
       registrationNumber: student.registrationNumber,
       studentName: `${student.firstName} ${student.lastName || ""}`.trim(),
       className: `${student.classId.grade} ${student.classId.section}`,
-      phone:student.phone,
+      phone: student.phone,
       totalAmount: fee.totalAmount,
       netPayable: fee.netPayable,
       totalPaid: fee.totalPaid,
@@ -507,16 +508,30 @@ export const searchFees = async (req, res) => {
     // ======= Student Name / Registration Number Filter =======
     if (registrationNumber || studentName) {
       const studentFilter = {};
-      if (registrationNumber)
-        studentFilter.registrationNumber = registrationNumber;
-      if (studentName)
-        studentFilter.firstName = { $regex: studentName, $options: "i" };
 
-      const students = await Student.find(studentFilter).select("_id");
+      if (registrationNumber) {
+        studentFilter.registrationNumber = registrationNumber;
+      }
+
+      let students = [];
+
+      if (studentName) {
+        students = await Student.find({
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ["$firstName", " ", "$lastName"] },
+              regex: studentName,
+              options: "i",
+            },
+          },
+        }).select("_id");
+      } else {
+        students = await Student.find(studentFilter).select("_id");
+      }
+
       if (students.length) {
         filter.studentId = { $in: students.map((s) => s._id) };
       } else {
-        // No matching students → return empty result
         return res.status(200).json({
           page: Number(page),
           limit: Number(limit),
@@ -537,6 +552,7 @@ export const searchFees = async (req, res) => {
       .populate("studentId", "firstName lastName registrationNumber classId")
       .populate("classId", "grade section")
       .populate("structureId", "session totalAmount amountPerInstallment")
+      .populate("admin", "schoolName ")
       .skip(skip)
       .limit(Number(limit));
 
