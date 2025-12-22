@@ -17,10 +17,11 @@ import feeRouter from "./router/feeRouter.js";
 import eventsRouter from "./router/eventsRouter.js";
 import examRouter from "./router/examRouter.js";
 import attendanceRouter from "./router/attendanceRouter.js";
-import usersRouter from "./router/usersRouter.js";
+//import usersRouter from "./router/usersRouter.js";
 import adminRegisterRouter from "./router/adminRegisterRouter.js";
 import protectedRoutes from "./router/protectedRoutes.js";
-
+import authRouter from "./router/authRouter.js";
+import accountantRouter from "./router/accountantRouter.js"
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
 import { verifyToken } from "./middlewares/authMiddleware.js";
@@ -73,9 +74,11 @@ app.use("/api/v1/timetable", timetableRouter);
 app.use("/api/v1/attendance", attendanceRouter);
 
 app.use("/api/v1/fees", feeRouter);
-app.use("/api/v1/users", usersRouter);
+//app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/dashboard", protectedRoutes);
 app.use("/api/v1/register", adminRegisterRouter);
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/accountant",accountantRouter);
 
 // Profile route
 app.get("/api/v1/profile", verifyToken, (req, res) => {

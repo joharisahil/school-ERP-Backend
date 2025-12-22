@@ -1,5 +1,5 @@
 import { Teacher } from "../models/teacherSchema.js";
-import { User } from "../models/userRegisterSchema.js";
+import { User } from "../models/userSchema.js";
 import { paginateQuery } from "../utils/paginate.js";
 import { Subject } from "../models/subjectSchema.js";
 import XLSX from "xlsx";

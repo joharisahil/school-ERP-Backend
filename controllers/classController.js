@@ -1,7 +1,7 @@
 import { Class } from "../models/classSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 import { Student } from "../models/studentSchema.js";
-import { User } from "../models/userRegisterSchema.js";
+import { User } from "../models/userSchema.js";
 import fs from "fs";
 import csv from "csv-parser";
 import bcrypt from "bcryptjs";
@@ -70,18 +70,22 @@ export const createClass = async (req, res, next) => {
 
 export const getAllClasses = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can view classes" });
-    }
-
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const adminId = req.user.id;
 
-    // 🔹 Paginated classes
+    // ✅ adminId injected by middleware
+    const adminId = req.schoolAdminId;
+
+    // -------------------------------
+    // 1. PAGINATED CLASSES + COUNT
+    // -------------------------------
     const result = await Class.aggregate([
-      { $match: { admin: new mongoose.Types.ObjectId(adminId) } },
+      {
+        $match: {
+          admin: new mongoose.Types.ObjectId(adminId),
+        },
+      },
       {
         $lookup: {
           from: "students",
@@ -95,7 +99,11 @@ export const getAllClasses = async (req, res, next) => {
           studentCount: { $size: "$students" },
         },
       },
-      { $project: { students: 0 } },
+      {
+        $project: {
+          students: 0,
+        },
+      },
       { $sort: { grade: 1, section: 1 } },
       {
         $facet: {
@@ -109,22 +117,32 @@ export const getAllClasses = async (req, res, next) => {
     const totalResults = result[0].totalCount[0]?.count || 0;
     const totalPages = Math.ceil(totalResults / limit);
 
-    // 🔹 Full list (non-paginated)
+    // -------------------------------
+    // 2. FULL CLASS LIST (DROPDOWNS)
+    // -------------------------------
     const allClasses = await Class.find({ admin: adminId })
       .sort({ grade: 1, section: 1 })
-      .select("-students");
+      .select("_id grade section");
 
-    // ✅ Return both paginated + full list
+    // -------------------------------
+    // 3. RESPONSE
+    // -------------------------------
     res.status(200).json({
       success: true,
-      classes, // paginated data
-      pagination: { page, limit, totalPages, totalResults },
+      classes, // paginated
+      pagination: {
+        page,
+        limit,
+        totalPages,
+        totalResults,
+      },
       data: allClasses, // full list
     });
   } catch (err) {
     next(err);
   }
 };
+
 
 
 export const assignStudentToClass = async (req, res, next) => {

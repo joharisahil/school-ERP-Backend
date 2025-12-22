@@ -100,11 +100,7 @@ import { Class } from "../models/classSchema.js";
 
 export const applyScholarship = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ message: "Only admins can apply scholarships" });
-    }
+ 
 
     const { registrationNumber } = req.params;
     const { name, type, value, period, months = [] } = req.body;
@@ -208,17 +204,132 @@ export const applyScholarship = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+/*beak */
+// export const getStudentsWithScholarships = async (req, res) => {
+//   try {
+//     // Only admin can access
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Only admins can view this" });
+//     }
+
+//     // Find all student fees where scholarships array is not empty
+//     const studentsWithScholarships = await StudentFee.find({
+//       admin: req.user.id, 
+//       "scholarships.0": { $exists: true },
+//     })
+//       .populate("studentId", "firstName lastName rollNo classId")
+//       .populate("classId", "name")
+//       .populate("structureId", "session totalAmount amountPerInstallment");
+
+//     res.status(200).json({
+//       count: studentsWithScholarships.length,
+//       students: studentsWithScholarships,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+/*break*/
+// export const removeScholarship = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res
+//         .status(403)
+//         .json({ error: "Only admins can remove scholarships" });
+//     }
+
+//     const { registrationNumber, scholarshipId } = req.params;
+
+//     // 1️⃣ Find student and fee record
+//     const student = await Student.findOne({ registrationNumber });
+//     if (!student) return res.status(404).json({ error: "Student not found" });
+
+//     const studentFee = await StudentFee.findOne({
+//       studentId: student._id,
+//     }).populate("structureId");
+//     if (!studentFee)
+//       return res.status(404).json({ error: "Student fee not found" });
+
+//     // 2️⃣ Check if scholarship exists
+//     const scholarshipIndex = studentFee.scholarships.findIndex(
+//       (s) => s._id.toString() === scholarshipId
+//     );
+//     if (scholarshipIndex === -1)
+//       return res.status(404).json({ error: "Scholarship not found" });
+
+//     // 3️⃣ Get the scholarship being removed
+//     const removedScholarship = studentFee.scholarships[scholarshipIndex];
+
+//     // 4️⃣ Remove scholarship
+//     studentFee.scholarships.splice(scholarshipIndex, 1);
+
+//     // 5️⃣ Rebuild each installment properly
+//     for (const inst of studentFee.installments) {
+//       // Find the original base amount from structure (if available)
+//       const originalMonth = studentFee.structureId?.monthDetails?.find(
+//         (m) => m.month === inst.month
+//       );
+
+//       const baseAmount = originalMonth
+//         ? originalMonth.amount
+//         : inst.amount + (inst.scholarshipDeducted || 0);
+
+//       // Recalculate new installment from base
+//       let newAmount = baseAmount;
+
+//       // Apply remaining scholarships again
+//       studentFee.scholarships.forEach((sch) => {
+//         if (sch.period === "yearly" || sch.months.includes(inst.month)) {
+//           let scholarshipAmount = 0;
+
+//           if (sch.type === "full") scholarshipAmount = newAmount;
+//           else if (sch.type === "half") scholarshipAmount = newAmount / 2;
+//           else if (sch.type === "custom") scholarshipAmount = sch.value;
+
+//           newAmount -= scholarshipAmount;
+//           if (newAmount < 0) newAmount = 0;
+//         }
+//       });
+
+//       // Preserve paid amount & status
+//       if (inst.amountPaid >= newAmount) {
+//         inst.amount = newAmount;
+//         inst.status = "Paid";
+//       } else {
+//         inst.amount = newAmount;
+//         inst.status = inst.amountPaid > 0 ? "Partial" : "Pending";
+//       }
+//     }
+
+//     // 6️⃣ Update totals
+//     studentFee.netPayable = studentFee.installments.reduce(
+//       (sum, i) => sum + i.amount,
+//       0
+//     );
+//     studentFee.balance = studentFee.netPayable - studentFee.totalPaid;
+//     if (studentFee.balance < 0) studentFee.balance = 0;
+
+//     await studentFee.save();
+
+//     res.status(200).json({
+//       message: "Scholarship removed successfully",
+//       registrationNumber: student.registrationNumber,
+//       updatedScholarships: studentFee.scholarships,
+//       studentFee,
+//     });
+//   } catch (error) {
+//     console.error("Error removing scholarship:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 
 export const getStudentsWithScholarships = async (req, res) => {
   try {
-    // Only admin can access
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can view this" });
-    }
-
-    // Find all student fees where scholarships array is not empty
+    // ✅ Fetch all student fees with scholarships for this school
     const studentsWithScholarships = await StudentFee.find({
-      admin: req.user.id, 
+      admin: req.schoolAdminId, 
       "scholarships.0": { $exists: true },
     })
       .populate("studentId", "firstName lastName rollNo classId")
@@ -230,46 +341,44 @@ export const getStudentsWithScholarships = async (req, res) => {
       students: studentsWithScholarships,
     });
   } catch (error) {
+    console.error("Error fetching students with scholarships:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+
 export const removeScholarship = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "Only admins can remove scholarships" });
-    }
-
     const { registrationNumber, scholarshipId } = req.params;
 
-    // 1️⃣ Find student and fee record
-    const student = await Student.findOne({ registrationNumber });
-    if (!student) return res.status(404).json({ error: "Student not found" });
+    // 1️⃣ Find student (school scoped)
+    const student = await Student.findOne({
+      registrationNumber,
+      admin: req.schoolAdminId,
+    });
+    if (!student)
+      return res.status(404).json({ error: "Student not found" });
 
+    // 2️⃣ Find student's fee record (school scoped)
     const studentFee = await StudentFee.findOne({
       studentId: student._id,
+      admin: req.schoolAdminId,
     }).populate("structureId");
     if (!studentFee)
       return res.status(404).json({ error: "Student fee not found" });
 
-    // 2️⃣ Check if scholarship exists
+    // 3️⃣ Check if scholarship exists
     const scholarshipIndex = studentFee.scholarships.findIndex(
       (s) => s._id.toString() === scholarshipId
     );
     if (scholarshipIndex === -1)
       return res.status(404).json({ error: "Scholarship not found" });
 
-    // 3️⃣ Get the scholarship being removed
-    const removedScholarship = studentFee.scholarships[scholarshipIndex];
-
     // 4️⃣ Remove scholarship
     studentFee.scholarships.splice(scholarshipIndex, 1);
 
-    // 5️⃣ Rebuild each installment properly
+    // 5️⃣ Recalculate installments
     for (const inst of studentFee.installments) {
-      // Find the original base amount from structure (if available)
       const originalMonth = studentFee.structureId?.monthDetails?.find(
         (m) => m.month === inst.month
       );
@@ -278,14 +387,12 @@ export const removeScholarship = async (req, res) => {
         ? originalMonth.amount
         : inst.amount + (inst.scholarshipDeducted || 0);
 
-      // Recalculate new installment from base
       let newAmount = baseAmount;
 
-      // Apply remaining scholarships again
+      // Reapply remaining scholarships
       studentFee.scholarships.forEach((sch) => {
         if (sch.period === "yearly" || sch.months.includes(inst.month)) {
           let scholarshipAmount = 0;
-
           if (sch.type === "full") scholarshipAmount = newAmount;
           else if (sch.type === "half") scholarshipAmount = newAmount / 2;
           else if (sch.type === "custom") scholarshipAmount = sch.value;
@@ -310,8 +417,7 @@ export const removeScholarship = async (req, res) => {
       (sum, i) => sum + i.amount,
       0
     );
-    studentFee.balance = studentFee.netPayable - studentFee.totalPaid;
-    if (studentFee.balance < 0) studentFee.balance = 0;
+    studentFee.balance = Math.max(studentFee.netPayable - studentFee.totalPaid, 0);
 
     await studentFee.save();
 
@@ -326,3 +432,4 @@ export const removeScholarship = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+

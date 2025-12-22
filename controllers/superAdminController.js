@@ -1,4 +1,4 @@
-import { User } from "../models/userRegisterSchema.js";
+import { User } from "../models/userSchema.js";
 
 export const toggleAdminStatus = async (req, res) => {
   try {

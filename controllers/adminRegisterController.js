@@ -1,4 +1,4 @@
-import { User } from "../models/userRegisterSchema.js";
+import { User } from "../models/userSchema.js";
 import { handleValidationError } from "../middlewares/errorHandler.js";
 import { Student } from "../models/studentSchema.js";
 import { Teacher } from "../models/teacherSchema.js";
@@ -96,13 +96,14 @@ export const logout = async (req, res, next) => {
   }
 };
 
-
 export const getAdminKPI = async (req, res, next) => {
   try {
-    const adminId = req.user.id;
-    const admin = await User.findById(adminId);
+    // ✅ Use schoolContext middleware to get the correct admin ID
+    const adminId = req.schoolAdminId;
 
-    if (!admin || admin.role !== "admin") {
+    // Fetch admin info
+    const admin = await User.findById(adminId);
+    if (!admin || !["admin", "accountant"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized access",
@@ -116,23 +117,23 @@ export const getAdminKPI = async (req, res, next) => {
       Class.countDocuments({ admin: adminId }),
     ]);
 
-    // ✅ Calculate total pending fees from StudentFee collection
+    // ✅ Calculate total pending and collected fees
     const studentFees = await StudentFee.find({ admin: adminId });
-
     let totalPending = 0;
     let totalCollected = 0;
-    let check=0;
-    let netPayabletotal=0;
+    let netPayableTotal = 0;
+
     studentFees.forEach((fee) => {
-      // Use the `balance` field directly (already stores remaining fee)
       totalPending += fee.balance || 0;
-      netPayabletotal +=fee.netPayable || 0;
+      netPayableTotal += fee.netPayable || 0;
       fee.payments.forEach((p) => {
         totalCollected += p.amount || 0;
       });
     });
-    check = netPayabletotal - (totalCollected+totalPending);
-    // ✅ School info from admin profile
+
+    const feesCheck = netPayableTotal - (totalCollected + totalPending);
+
+    // ✅ School info
     const { schoolName, planDays } = admin;
 
     res.status(200).json({
@@ -144,8 +145,8 @@ export const getAdminKPI = async (req, res, next) => {
         teachersCount,
         classesCount,
         feesPending: totalPending,
-        feesCollected : totalCollected,
-        feesCheck :check,
+        feesCollected: totalCollected,
+        feesCheck,
       },
     });
   } catch (err) {

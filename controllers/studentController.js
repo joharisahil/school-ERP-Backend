@@ -1,5 +1,5 @@
 import { Student } from "../models/studentSchema.js";
-import { User } from "../models/userRegisterSchema.js";
+import { User } from "../models/userSchema.js";
 import { paginateQuery } from "../utils/paginate.js";
 import { Class } from "../models/classSchema.js"; // adjust the path if needed
 import mongoose from "mongoose";
@@ -177,50 +177,10 @@ export const createStudent = async (req, res) => {
   }
 };
 
-// export const getStudentById = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can view student details" });
-//     }
-
-//     const { id } = req.params;
-
-//     // Fetch student by ID and populate class details
-//     const student = await Student.findById(id)
-//       .populate("classId", "grade section name")
-//       .populate("user", "email role");
-
-//     if (!student) {
-//       return res.status(404).json({ error: "Student not found" });
-//     }
-
-//     // Fetch fee details (if any)
-//     const feeDetails = await StudentFee.findOne({ studentId: id })
-//       .populate("structureId", "session totalAmount amountPerInstallment monthDetails")
-//       .lean();
-
-//     // Prepare combined response
-//     const response = {
-//       ...student.toObject(),
-//       feeDetails: feeDetails || null,
-//     };
-
-//     res.status(200).json({
-//       success: true,
-//       student: response,
-//     });
-//   } catch (error) {
-//     console.error("Error fetching student details:", error);
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// };
 
 export const getStudentById = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can view student details" });
-    }
-
+     const adminId = req.schoolAdminId;
     const { id } = req.params;
 
     // Fetch student by ID
@@ -258,22 +218,21 @@ export const getStudentById = async (req, res) => {
 
 export const getAllStudents = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can view this data" });
-    }
+    const adminId = req.schoolAdminId; // ✅ resolved by middleware
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-
     const { grade, section, scholarship, search } = req.query;
 
-    // ---------------------------
-    // 1. BUILD FILTER FOR STUDENT
-    // ---------------------------
-    const filter = { admin: req.user.id };
+    // --------------------------------------------------
+    // 1. BASE FILTER (SCHOOL SCOPED)
+    // --------------------------------------------------
+    let filter = { admin: adminId };
 
-    // 🔥 CLASS FILTER (grade + section)
-    let classQuery = { admin: req.user.id };
+    // --------------------------------------------------
+    // 2. CLASS FILTER
+    // --------------------------------------------------
+    let classQuery = { admin: adminId };
 
     if (grade) classQuery.grade = grade;
     if (section) classQuery.section = section;
@@ -281,7 +240,7 @@ export const getAllStudents = async (req, res, next) => {
     if (grade || section) {
       const classes = await Class.find(classQuery).select("_id");
 
-      if (classes.length === 0) {
+      if (!classes.length) {
         return res.status(200).json({
           success: true,
           students: [],
@@ -292,11 +251,12 @@ export const getAllStudents = async (req, res, next) => {
         });
       }
 
-      const classIds = classes.map(c => c._id);
-      filter.classId = { $in: classIds };
+      filter.classId = { $in: classes.map(c => c._id) };
     }
 
-    // 🔥 SEARCH FILTER
+    // --------------------------------------------------
+    // 3. SEARCH FILTER
+    // --------------------------------------------------
     if (search) {
       filter.$or = [
         { firstName: new RegExp(search, "i") },
@@ -306,14 +266,13 @@ export const getAllStudents = async (req, res, next) => {
       ];
     }
 
-    // --------------------------------------------
-    // 2. FETCH ALL MATCHING STUDENTS BEFORE PAGING
-    // --------------------------------------------
+    // --------------------------------------------------
+    // 4. FETCH ALL MATCHING (FOR KPI)
+    // --------------------------------------------------
     const allMatchingStudents = await Student.find(filter).select("_id");
     const allMatchingIds = allMatchingStudents.map(s => s._id);
 
-    // If no student matches any filter → return empty result
-    if (allMatchingIds.length === 0) {
+    if (!allMatchingIds.length) {
       return res.status(200).json({
         success: true,
         students: [],
@@ -324,21 +283,18 @@ export const getAllStudents = async (req, res, next) => {
       });
     }
 
-    // ---------------------------------------------------
-    // 3. SCHOLARSHIP FILTER (APPLIED BEFORE PAGINATION)
-    // ---------------------------------------------------
-    let scholarshipStudentIds = [];
-
+    // --------------------------------------------------
+    // 5. SCHOLARSHIP FILTER
+    // --------------------------------------------------
     if (scholarship === "yes") {
       const scholarshipFees = await StudentFee.find({
         studentId: { $in: allMatchingIds },
-        "scholarships.0": { $exists: true }
+        "scholarships.0": { $exists: true },
       }).select("studentId");
 
-      scholarshipStudentIds = scholarshipFees.map(f => f.studentId.toString());
+      const scholarshipIds = scholarshipFees.map(f => f.studentId);
 
-      // No scholarship students found
-      if (scholarshipStudentIds.length === 0) {
+      if (!scholarshipIds.length) {
         return res.status(200).json({
           success: true,
           students: [],
@@ -349,13 +305,12 @@ export const getAllStudents = async (req, res, next) => {
         });
       }
 
-      // Merge scholarship filter with student filter
-      filter._id = { $in: scholarshipStudentIds };
+      filter._id = { $in: scholarshipIds };
     }
 
-    // ------------------------------------------
-    // 4. PAGINATE FINAL FILTERED STUDENTS
-    // ------------------------------------------
+    // --------------------------------------------------
+    // 6. PAGINATION
+    // --------------------------------------------------
     const { results: students, pagination } = await paginateQuery(
       Student,
       filter,
@@ -364,17 +319,15 @@ export const getAllStudents = async (req, res, next) => {
       limit
     );
 
-    const studentIdsOnPage = students.map(s => s._id);
-
-    // ------------------------------------------
-    // 5. FETCH SCHOLARSHIP INFO ONLY FOR PAGE
-    // ------------------------------------------
+    // --------------------------------------------------
+    // 7. SCHOLARSHIP INFO (PAGE ONLY)
+    // --------------------------------------------------
     const studentFees = await StudentFee.find({
-      studentId: { $in: studentIdsOnPage }
+      studentId: { $in: students.map(s => s._id) },
     }).populate("structureId");
 
     const scholarshipMap = {};
-    studentFees.forEach((fee) => {
+    studentFees.forEach(fee => {
       scholarshipMap[fee.studentId] = {
         scholarships: fee.scholarships,
         amountPerInstallment: fee.structureId?.amountPerInstallment,
@@ -383,39 +336,35 @@ export const getAllStudents = async (req, res, next) => {
       };
     });
 
-    // Merge scholarship info into student objects
-    const merged = students.map((st) => ({
+    const merged = students.map(st => ({
       ...st.toObject(),
       scholarshipInfo: scholarshipMap[st._id] || null,
     }));
 
-    // ------------------------------------------
-    // 6. KPI COUNTS
-    // ------------------------------------------
-    const totalStudents = allMatchingIds.length;
-
+    // --------------------------------------------------
+    // 8. KPI COUNTS
+    // --------------------------------------------------
     const totalScholarshipStudents = await StudentFee.countDocuments({
       studentId: { $in: allMatchingIds },
-      "scholarships.0": { $exists: true }
+      "scholarships.0": { $exists: true },
     });
 
     const scholarshipPercentage =
-      totalStudents > 0
-        ? ((totalScholarshipStudents / totalStudents) * 100).toFixed(2)
+      allMatchingIds.length > 0
+        ? ((totalScholarshipStudents / allMatchingIds.length) * 100).toFixed(2)
         : "0";
 
-    // ------------------------------------------
-    // 7. FINAL RESPONSE
-    // ------------------------------------------
+    // --------------------------------------------------
+    // 9. RESPONSE
+    // --------------------------------------------------
     res.status(200).json({
       success: true,
       students: merged,
       pagination,
-      totalStudents,
+      totalStudents: allMatchingIds.length,
       totalScholarshipStudents,
       scholarshipPercentage: `${scholarshipPercentage}%`,
     });
-
   } catch (err) {
     next(err);
   }
@@ -824,92 +773,6 @@ export const uploadStudentsExcel = async (req, res) => {
   }
 };
 
-// export const testUploadStudentsExcel = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin") {
-//       return res.status(403).json({ error: "Only admins can test excel upload" });
-//     }
-
-//     if (!req.file) {
-//       return res.status(400).json({ error: "Please upload an Excel file" });
-//     }
-
-//     const workbook = XLSX.readFile(req.file.path);
-//     const sheetName = workbook.SheetNames[0];
-//     const sheet = workbook.Sheets[sheetName];
-//     const rows = XLSX.utils.sheet_to_json(sheet);
-
-//     const results = { valid: [], invalid: [] };
-
-//     for (const row of rows) {
-//       try {
-//         const {
-//           firstName,
-//           lastName,
-//           phone,
-//           dob,
-//           address,
-//           aadhaarNumber,
-//           caste,
-//           contactEmail,
-//           contactName,
-//           contactPhone,
-//           relation,
-//           fatherName,
-//           motherName,
-//           fatherphone,
-//           motherphone,
-//           fatherEmail,
-//           motherEmail,
-//           fatherOccupation,
-//           motherOccupation,
-//         } = row;
-
-//         // Required field check
-//         if (!firstName || !phone) {
-//           results.invalid.push({
-//             row,
-//             reason: "Missing required fields (firstName, phone)",
-//           });
-//           continue;
-//         }
-
-//         // Validate DOB format
-//         if (dob) {
-//           const [day, month, year] = dob.split(/[./-]/);
-//           if (!day || !month || !year) {
-//             results.invalid.push({
-//               row,
-//               reason: "Invalid DOB format",
-//             });
-//             continue;
-//           }
-//         }
-
-//         // Valid row response (only echo row back)
-//         results.valid.push({
-//           row,
-//         });
-//       } catch (err) {
-//         results.invalid.push({
-//           row,
-//           reason: err.message,
-//         });
-//       }
-//     }
-
-//     res.status(200).json({
-//       message: "Excel test completed (no data saved)",
-//       totalRows: rows.length,
-//       valid: results.valid.length,
-//       invalid: results.invalid.length,
-//       results,
-//     });
-//   } catch (error) {
-//     console.error("Error testing Excel:", error);
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// };
 
 export const testUploadStudentsExcel = async (req, res) => {
   try {

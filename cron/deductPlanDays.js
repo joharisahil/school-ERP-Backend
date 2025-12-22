@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { User } from "../models/userRegisterSchema.js";
+import { User } from "../models/userSchema.js";
 
 // Run at 12:00 AM IST daily
 cron.schedule(
