@@ -6,8 +6,6 @@ import bcrypt from "bcrypt";
 
 
 // Helper: generate JWT
-// Helper: generate JWT
-// Helper: generate JWT
 export const generateToken = (user) => {
   const payload = {
     id: user._id.toString(),
