@@ -13,13 +13,18 @@ const generateRegistrationNumber = () => {
   return `REG-${timestamp}${random}`;
 };
 
-const generateStudentEmail = (firstName, lastName, registrationNumber, schoolName) => {
-  const cleanFirstName = firstName.toLowerCase().replace(/\s+/g, '');
-  const cleanLastName = (lastName || "").toLowerCase().replace(/\s+/g, '');
-  const cleanSchoolName = schoolName.toLowerCase().replace(/\s+/g, '');
+const generateStudentEmail = (
+  firstName,
+  lastName,
+  registrationNumber,
+  schoolName,
+) => {
+  const cleanFirstName = firstName.toLowerCase().replace(/\s+/g, "");
+  const cleanLastName = (lastName || "").toLowerCase().replace(/\s+/g, "");
+  const cleanSchoolName = schoolName.toLowerCase().replace(/\s+/g, "");
 
   // remove "REG-" before using in email
-  const regNoPart = registrationNumber.replace(/^REG-/, '');
+  const regNoPart = registrationNumber.replace(/^REG-/, "");
 
   return `${cleanFirstName}${cleanLastName}${regNoPart}@${cleanSchoolName}.jam`;
 };
@@ -74,7 +79,7 @@ export const createStudent = async (req, res) => {
       firstName,
       lastName,
       registrationNumber,
-      schoolName
+      schoolName,
     );
 
     // ✅ Create login user for student
@@ -83,7 +88,6 @@ export const createStudent = async (req, res) => {
       password: defaultPassword,
       role: "student",
     });
-    
 
     // ✅ Save student record
     const student = await Student.create({
@@ -132,7 +136,7 @@ export const createStudent = async (req, res) => {
 
       const totalAmount = installments.reduce(
         (sum, inst) => sum + inst.amount,
-        0
+        0,
       );
 
       const studentFee = await StudentFee.create({
@@ -153,7 +157,7 @@ export const createStudent = async (req, res) => {
       console.log(`✅ Fee structure auto-assigned to ${student.firstName}`);
     } else {
       console.log(
-        `⚠️ No Fee Structure found for class ${classId} (session ${session})`
+        `⚠️ No Fee Structure found for class ${classId} (session ${session})`,
       );
     }
 
@@ -177,10 +181,9 @@ export const createStudent = async (req, res) => {
   }
 };
 
-
 export const getStudentById = async (req, res) => {
   try {
-     const adminId = req.schoolAdminId;
+    const adminId = req.schoolAdminId;
     const { id } = req.params;
 
     // Fetch student by ID
@@ -194,9 +197,12 @@ export const getStudentById = async (req, res) => {
 
     // Fetch fee details with scholarship info
     const feeDetails = await StudentFee.findOne({ studentId: id })
-      .populate("structureId", "session totalAmount amountPerInstallment monthDetails")
+      .populate(
+        "structureId",
+        "session totalAmount amountPerInstallment monthDetails",
+      )
       .populate("classId", "grade section name")
-      .populate("admin", "name email")   // Who assigned
+      .populate("admin", "name email") // Who assigned
       .lean();
 
     // Prepare combined output
@@ -214,7 +220,6 @@ export const getStudentById = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 export const getAllStudents = async (req, res, next) => {
   try {
@@ -251,7 +256,7 @@ export const getAllStudents = async (req, res, next) => {
         });
       }
 
-      filter.classId = { $in: classes.map(c => c._id) };
+      filter.classId = { $in: classes.map((c) => c._id) };
     }
 
     // --------------------------------------------------
@@ -270,7 +275,7 @@ export const getAllStudents = async (req, res, next) => {
     // 4. FETCH ALL MATCHING (FOR KPI)
     // --------------------------------------------------
     const allMatchingStudents = await Student.find(filter).select("_id");
-    const allMatchingIds = allMatchingStudents.map(s => s._id);
+    const allMatchingIds = allMatchingStudents.map((s) => s._id);
 
     if (!allMatchingIds.length) {
       return res.status(200).json({
@@ -292,7 +297,7 @@ export const getAllStudents = async (req, res, next) => {
         "scholarships.0": { $exists: true },
       }).select("studentId");
 
-      const scholarshipIds = scholarshipFees.map(f => f.studentId);
+      const scholarshipIds = scholarshipFees.map((f) => f.studentId);
 
       if (!scholarshipIds.length) {
         return res.status(200).json({
@@ -316,18 +321,18 @@ export const getAllStudents = async (req, res, next) => {
       filter,
       [{ path: "classId" }],
       page,
-      limit
+      limit,
     );
 
     // --------------------------------------------------
     // 7. SCHOLARSHIP INFO (PAGE ONLY)
     // --------------------------------------------------
     const studentFees = await StudentFee.find({
-      studentId: { $in: students.map(s => s._id) },
+      studentId: { $in: students.map((s) => s._id) },
     }).populate("structureId");
 
     const scholarshipMap = {};
-    studentFees.forEach(fee => {
+    studentFees.forEach((fee) => {
       scholarshipMap[fee.studentId] = {
         scholarships: fee.scholarships,
         amountPerInstallment: fee.structureId?.amountPerInstallment,
@@ -336,7 +341,7 @@ export const getAllStudents = async (req, res, next) => {
       };
     });
 
-    const merged = students.map(st => ({
+    const merged = students.map((st) => ({
       ...st.toObject(),
       scholarshipInfo: scholarshipMap[st._id] || null,
     }));
@@ -369,7 +374,6 @@ export const getAllStudents = async (req, res, next) => {
     next(err);
   }
 };
-
 
 export const updateStudent = async (req, res) => {
   try {
@@ -452,7 +456,7 @@ export const deleteStudent = async (req, res) => {
       await Class.updateOne(
         { _id: student.classId },
         { $pull: { students: student._id } },
-        { session }
+        { session },
       );
     }
 
@@ -535,10 +539,7 @@ export const searchStudents = async (req, res) => {
     // 🔎 Main search in Fee (or Payment) collection
     const searchConditions = {
       admin: adminId,
-      $or: [
-        { studentId: { $in: studentIds } },
-        { classId: { $in: classIds } },
-      ],
+      $or: [{ studentId: { $in: studentIds } }, { classId: { $in: classIds } }],
     };
 
     const skip = (pageNum - 1) * limitNum;
@@ -549,7 +550,7 @@ export const searchStudents = async (req, res) => {
         .populate("classId", "name grade")
         .populate(
           "structureId",
-          "session totalAmount amountPerInstallment scholarships"
+          "session totalAmount amountPerInstallment scholarships",
         )
         .skip(skip)
         .limit(limitNum)
@@ -585,7 +586,6 @@ export const uploadStudentsExcel = async (req, res) => {
       return res.status(400).json({ error: "Please upload an Excel file" });
     }
     const { classId, session } = req.body;
-
 
     const workbook = XLSX.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
@@ -627,10 +627,11 @@ export const uploadStudentsExcel = async (req, res) => {
         } = row;
 
         // ✅ Mandatory checks
-        if (!firstName || !phone ) {
+        if (!firstName || !phone) {
           results.failed.push({
             row: row,
-            reason: "Missing required fields (firstName, phone, classId, session)",
+            reason:
+              "Missing required fields (firstName, phone, classId, session)",
           });
           continue;
         }
@@ -648,7 +649,7 @@ export const uploadStudentsExcel = async (req, res) => {
           firstName,
           lastName,
           registrationNumber,
-          schoolName
+          schoolName,
         );
 
         // ✅ Check duplicate email or registration number
@@ -673,8 +674,9 @@ export const uploadStudentsExcel = async (req, res) => {
 
         let parsedDob = null;
         if (dob) {
-        const [day, month, year] = dob.split(/[./-]/);
-        if (day && month && year) parsedDob = new Date(`${year}-${month}-${day}`);
+          const [day, month, year] = dob.split(/[./-]/);
+          if (day && month && year)
+            parsedDob = new Date(`${year}-${month}-${day}`);
         }
 
         // ✅ Create student record
@@ -711,7 +713,10 @@ export const uploadStudentsExcel = async (req, res) => {
         });
 
         // ✅ Assign Fee Structure if found
-        const existingStructure = await FeeStructure.findOne({ classId, session });
+        const existingStructure = await FeeStructure.findOne({
+          classId,
+          session,
+        });
 
         if (existingStructure) {
           const installments = existingStructure.monthDetails.map((m) => ({
@@ -724,7 +729,7 @@ export const uploadStudentsExcel = async (req, res) => {
 
           const totalAmount = installments.reduce(
             (sum, inst) => sum + inst.amount,
-            0
+            0,
           );
 
           await StudentFee.create({
@@ -739,12 +744,14 @@ export const uploadStudentsExcel = async (req, res) => {
             balance: totalAmount,
             installments,
             createdBy: req.user.id,
-            admin: req.user.id, 
+            admin: req.user.id,
           });
 
           console.log(`✅ Fee structure assigned to ${student.firstName}`);
         } else {
-          console.log(`⚠️ No Fee Structure found for class ${classId} (${session})`);
+          console.log(
+            `⚠️ No Fee Structure found for class ${classId} (${session})`,
+          );
         }
 
         results.success.push({
@@ -773,11 +780,12 @@ export const uploadStudentsExcel = async (req, res) => {
   }
 };
 
-
 export const testUploadStudentsExcel = async (req, res) => {
   try {
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can test excel upload" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can test excel upload" });
     }
 
     if (!req.file) {
@@ -858,5 +866,56 @@ export const testUploadStudentsExcel = async (req, res) => {
   } catch (error) {
     console.error("Error testing Excel:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// controllers/studentController.js
+// controllers/studentController.js
+export const getStudentsByClass = async (req, res) => {
+  try {
+    const adminId = req.schoolAdminId;
+    const { classId } = req.params;
+
+    console.log("Getting students for class:", classId);
+    console.log("Admin ID:", adminId);
+
+    // Validate classId
+    if (!classId) {
+      return res.status(400).json({ error: "Class ID is required" });
+    }
+
+    // Check if class exists and belongs to admin
+    const classExists = await Class.findOne({
+      _id: classId,
+      admin: adminId,
+    });
+
+    console.log("Class exists:", classExists);
+
+    if (!classExists) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    // Fetch all students in the class
+    const students = await Student.find({
+      classId: classId,
+      admin: adminId,
+    })
+      .select("firstName lastName registrationNumber rollNumber email phone")
+      .lean();
+
+    console.log(`Found ${students.length} students`);
+
+    res.status(200).json({
+      success: true,
+      data: students,
+      count: students.length,
+    });
+  } catch (error) {
+    console.error("Error fetching students by class:", error);
+    res.status(500).json({
+      error: "Failed to fetch students",
+      details: error.message,
+    });
   }
 };

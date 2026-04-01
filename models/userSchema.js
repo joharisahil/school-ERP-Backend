@@ -12,6 +12,13 @@ const userSchema = new mongoose.Schema(
       unique: true,
       validate: [validator.isEmail, "Please provide a valid email"],
     },
+    schoolEmail: {
+      type: String,
+      
+      lowercase: true,
+      
+      validate: [validator.isEmail, "Please provide a valid email"],
+    },
     password: {
       type: String,
       required: true,
@@ -28,6 +35,25 @@ const userSchema = new mongoose.Schema(
         return this.role === "admin";
       },
       trim: true,
+    },
+     schoolAddress: {
+      type: String,
+      required: function () {
+        return this.role === "admin";
+      },
+      trim: true,
+      default: "",
+    },
+    schoolLogo: {
+      type: String, // Store URL (cloud storage path)
+      required: false,
+      default: "",
+    },
+    schoolPhone: {
+      type: String,
+      required: false,
+      trim: true,
+      default: "",
     },
     planDays: {
       type: Number,
@@ -49,6 +75,7 @@ const userSchema = new mongoose.Schema(
         return [];
       },
     },
+
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

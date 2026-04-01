@@ -7,6 +7,7 @@ import {
   searchStudents,
   uploadStudentsExcel,
   getStudentById,
+  getStudentsByClass,
   testUploadStudentsExcel,
 } from "../controllers/studentController.js";
 import { verifyToken } from "../middlewares/authMiddleware.js";
@@ -16,6 +17,8 @@ import { schoolContext } from "../middlewares/schoolContext.js";
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
 
+router.get("/class/:classId",verifyToken, authorize("admin", "accountant"),
+  schoolContext, getStudentsByClass);
 router.get(
   "/getall",
   verifyToken,
@@ -46,5 +49,4 @@ router.post(
   upload.single("file"),
   testUploadStudentsExcel
 );
-
 export default router;

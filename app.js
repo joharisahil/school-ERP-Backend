@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import { config } from "dotenv";
 import cors from "cors";
 
@@ -21,12 +22,18 @@ import attendanceRouter from "./router/attendanceRouter.js";
 import adminRegisterRouter from "./router/adminRegisterRouter.js";
 import protectedRoutes from "./router/protectedRoutes.js";
 import authRouter from "./router/authRouter.js";
-import accountantRouter from "./router/accountantRouter.js"
+import schoolRouter from "./router/schoolRouter.js"
+import accountantRouter from "./router/accountantRouter.js";
+import otherfeeRouter from "./router/otherFeeRoutes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
 import { verifyToken } from "./middlewares/authMiddleware.js";
 import "./cron/deleteOldTeachers.js";
 import "./cron/deductPlanDays.js";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
 config({ path: "./config/config.env" });
 
@@ -60,6 +67,8 @@ app.use(express.urlencoded({ extended: true }));
 // --------------------
 // ROUTES
 // --------------------
+console.log("📦 Static serving from:", path.join(process.cwd(), "uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/v1/students", studentRouter);
 app.use("/api/v1/teachers", teacherRouter);
 app.use("/api/v1/assignments", assignmentRouter);
@@ -72,8 +81,9 @@ app.use("/api/v1/events", eventsRouter);
 app.use("/api/v1/exam", examRouter);
 app.use("/api/v1/timetable", timetableRouter);
 app.use("/api/v1/attendance", attendanceRouter);
-
+app.use("/api/v1/school", schoolRouter);
 app.use("/api/v1/fees", feeRouter);
+app.use("/api/v1/other-fees", otherfeeRouter);
 //app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/dashboard", protectedRoutes);
 app.use("/api/v1/register", adminRegisterRouter);
