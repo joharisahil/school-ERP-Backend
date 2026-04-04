@@ -2,6 +2,7 @@ import { FeeStructure } from "../models/feeStructureSchema.js";
 import { StudentFee } from "../models/studentFeeSchema.js";
 import { Student } from "../models/studentSchema.js"; // assuming you already have this
 import { Class } from "../models/classSchema.js";
+import { StudentOtherFee } from "../models/studentOtherFeeSchema.js";
 
 const generateTransactionId = () => {
   const random = Math.floor(100000 + Math.random() * 900000);
@@ -559,6 +560,10 @@ export const getAllStudentFees = async (req, res) => {
   }
 };
 
+// feesController.js - Updated searchFees function
+
+// Optimized searchFees controller - returns only necessary fields
+
 export const searchFees = async (req, res) => {
   try {
     const role = req.user.role;
@@ -569,17 +574,17 @@ export const searchFees = async (req, res) => {
         .json({ error: "Only admins or accountants can access this endpoint" });
     }
 
-    const schoolAdminId = req.schoolAdminId; // from middleware
+    const schoolAdminId = req.schoolAdminId;
     const {
       grade,
       classId,
       registrationNumber,
       studentName,
-      scholarship, // "with" | "without"
-      scholarshipType, // "full" | "half" | "custom"
-      overdue, // "true" | "false"
-      status, // "Paid" | "Partial" | "Pending"
-      lateFee, // "true" | "false"
+      scholarship,
+      scholarshipType,
+      overdue,
+      status,
+      lateFee,
       session,
       minAmount,
       maxAmount,
@@ -636,8 +641,9 @@ export const searchFees = async (req, res) => {
     if (scholarshipType) filter["scholarships.type"] = scholarshipType;
 
     // ======= Student Name / Registration Number Filter =======
+    let studentIds = [];
     if (registrationNumber || studentName) {
-      const studentFilter = {};
+      const studentFilter = { admin: schoolAdminId };
       let students = [];
 
       if (registrationNumber)
@@ -667,9 +673,10 @@ export const searchFees = async (req, res) => {
         }).select("_id");
       }
 
-      if (students.length)
-        filter.studentId = { $in: students.map((s) => s._id) };
-      else {
+      studentIds = students.map((s) => s._id);
+      if (studentIds.length) {
+        filter.studentId = { $in: studentIds };
+      } else {
         return res.status(200).json({
           page: Number(page),
           limit: Number(limit),
@@ -685,31 +692,160 @@ export const searchFees = async (req, res) => {
     // ======= Pagination =======
     const skip = (page - 1) * limit;
 
-    // ======= Fetch Fees =======
-    const fees = await StudentFee.find(filter)
-      .populate("studentId", "firstName lastName registrationNumber classId")
+    // ======= Fetch Regular Fees with MINIMAL population =======
+    const regularFees = await StudentFee.find(filter)
+      .populate("studentId", "firstName lastName registrationNumber")
       .populate("classId", "grade section")
-      .populate("structureId", "session totalAmount amountPerInstallment")
+      .populate("structureId", "session totalAmount") // Only essential fields
       .populate("admin", "schoolName")
-      .skip(skip)
-      .limit(Number(limit));
+      .select("_id studentId registrationNumber classId session structureId totalAmount netPayable totalPaid balance installments payments scholarships createdAt updatedAt")
+      .lean();
+
+    // ======= Fetch Other Fees for same students with MINIMAL data =======
+    let otherFeesFilter = { admin: schoolAdminId };
+    if (studentIds.length) {
+      otherFeesFilter.studentId = { $in: studentIds };
+    }
+    if (filter.classId) {
+      otherFeesFilter.classId = filter.classId;
+    }
+    if (filter.session) {
+      otherFeesFilter.session = filter.session;
+    }
+
+    const otherFees = await StudentOtherFee.find(otherFeesFilter)
+      .populate("studentId", "_id")
+      .populate("structureId", "title session totalAmount") // Only title, session, totalAmount
+      .select("_id studentId structureId totalAmount totalPaid balance installments payments")
+      .lean();
+
+    // ======= Group Other Fees by Student =======
+    const otherFeesByStudent = new Map();
+    for (const otherFee of otherFees) {
+      const studentKey = otherFee.studentId._id.toString();
+      if (!otherFeesByStudent.has(studentKey)) {
+        otherFeesByStudent.set(studentKey, []);
+      }
+      
+      // Create MINIMAL other fee object for list view
+      otherFeesByStudent.get(studentKey).push({
+        _id: otherFee._id,  // StudentOtherFee ID - needed for "Add Installments"
+        structureId: {
+          _id: otherFee.structureId?._id,
+          title: otherFee.structureId?.title || "Other Fee",
+          session: otherFee.structureId?.session,
+          totalAmount: otherFee.structureId?.totalAmount,
+        },
+        totalAmount: otherFee.totalAmount,
+        totalPaid: otherFee.totalPaid,
+        balance: otherFee.balance,
+        // For status calculation in table
+        hasPendingInstallments: otherFee.installments?.some(i => i.status !== "Paid"),
+        // Only include first pending installment's due date for "Next Due Date" column
+        nextDueDate: otherFee.installments?.find(i => i.status !== "Paid")?.dueDate,
+      });
+    }
+
+    // ======= Combine Fees =======
+    const feesMap = new Map();
+
+    for (const fee of regularFees) {
+      const studentKey = fee.studentId._id.toString();
+      feesMap.set(studentKey, {
+        _id: fee._id,
+        admin: fee.admin,
+        studentId: fee.studentId,
+        registrationNumber: fee.registrationNumber,
+        classId: fee.classId,
+        session: fee.session,
+        structureId: fee.structureId,
+        totalAmount: fee.totalAmount,
+        netPayable: fee.netPayable,
+        totalPaid: fee.totalPaid,
+        balance: fee.balance,
+        installments: fee.installments.map(inst => ({
+          month: inst.month,
+          dueDate: inst.dueDate,
+          amount: inst.amount,
+          status: inst.status,
+          amountPaid: inst.amountPaid,
+        })),
+        payments: fee.payments?.slice(-1).map(p => ({  // Only last payment for receipt
+          _id: p._id,
+          amount: p.amount,
+          mode: p.mode,
+          paidAt: p.paidAt,
+        })),
+        scholarships: fee.scholarships,
+        createdAt: fee.createdAt,
+        updatedAt: fee.updatedAt,
+        otherFees: otherFeesByStudent.get(studentKey) || [],
+      });
+    }
+
+    // Add students who only have other fees (no regular fee)
+    for (const [studentKey, otherFeesList] of otherFeesByStudent) {
+      if (!feesMap.has(studentKey)) {
+        const student = await Student.findById(studentKey)
+          .select("firstName lastName registrationNumber classId")
+          .lean();
+        
+        if (student) {
+          const classInfo = await Class.findById(student.classId)
+            .select("grade section")
+            .lean();
+          
+          feesMap.set(studentKey, {
+            _id: null,
+            admin: { schoolName: req.user.schoolName },
+            studentId: student,
+            registrationNumber: student.registrationNumber,
+            classId: classInfo,
+            session: otherFeesList[0]?.structureId?.session || "N/A",
+            structureId: null,
+            totalAmount: 0,
+            netPayable: 0,
+            totalPaid: 0,
+            balance: 0,
+            installments: [],
+            payments: [],
+            scholarships: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            otherFees: otherFeesList,
+            isOtherFeeOnly: true,
+          });
+        }
+      }
+    }
+
+    // Convert map to array and apply pagination
+    let combinedFees = Array.from(feesMap.values());
+    const totalStudents = combinedFees.length;
+    combinedFees = combinedFees.slice(skip, skip + Number(limit));
 
     // ======= KPI Totals =======
-    const totalStudents = await StudentFee.countDocuments(filter);
     let totalCollected = 0;
     let totalPending = 0;
     let totalLateFeeSubmitters = 0;
     const today = new Date();
 
-    fees.forEach((fee) => {
+    for (const fee of combinedFees) {
       totalCollected += fee.totalPaid || 0;
       totalPending += fee.balance || 0;
 
-      const hasLateFee = fee.installments.some(
-        (inst) => inst.status === "Paid" && inst.dueDate < today,
+      if (fee.otherFees) {
+        for (const otherFee of fee.otherFees) {
+          totalCollected += otherFee.totalPaid || 0;
+          totalPending += otherFee.balance || 0;
+        }
+      }
+
+      const hasLateFee = fee.installments?.some(
+        (inst) => inst.status === "Paid" && new Date(inst.dueDate) < today,
       );
       if (hasLateFee) totalLateFeeSubmitters += 1;
-    });
+    }
 
     res.status(200).json({
       page: Number(page),
@@ -718,13 +854,180 @@ export const searchFees = async (req, res) => {
       totalCollected,
       totalPending,
       totalLateFeeSubmitters,
-      fees,
+      fees: combinedFees,
     });
   } catch (error) {
     console.error("Error searching fees:", error);
     res.status(500).json({ error: "Server error while searching fees" });
   }
 };
+//depricated
+// export const searchFees = async (req, res) => {
+//   try {
+//     const role = req.user.role;
+
+//     if (!["admin", "accountant"].includes(role)) {
+//       return res
+//         .status(403)
+//         .json({ error: "Only admins or accountants can access this endpoint" });
+//     }
+
+//     const schoolAdminId = req.schoolAdminId; // from middleware
+//     const {
+//       grade,
+//       classId,
+//       registrationNumber,
+//       studentName,
+//       scholarship, // "with" | "without"
+//       scholarshipType, // "full" | "half" | "custom"
+//       overdue, // "true" | "false"
+//       status, // "Paid" | "Partial" | "Pending"
+//       lateFee, // "true" | "false"
+//       session,
+//       minAmount,
+//       maxAmount,
+//       page = 1,
+//       limit = 50,
+//     } = req.query;
+
+//     const filter = { admin: schoolAdminId };
+
+//     // ======= Class / Grade Filter =======
+//     if (grade || classId) {
+//       const classFilter = {};
+//       if (grade) classFilter.grade = grade;
+//       if (classId) classFilter._id = classId;
+
+//       const classes = await Class.find(classFilter).select("_id");
+//       if (classes.length) filter.classId = { $in: classes.map((c) => c._id) };
+//     }
+
+//     // ======= Session Filter =======
+//     if (session) filter.session = session;
+
+//     // ======= Net Payable Amount Filter =======
+//     if (minAmount || maxAmount) {
+//       filter.netPayable = {};
+//       if (minAmount) filter.netPayable.$gte = Number(minAmount);
+//       if (maxAmount) filter.netPayable.$lte = Number(maxAmount);
+//     }
+
+//     // ======= Installments Filter =======
+//     if (overdue === "true" || status || lateFee === "true") {
+//       const today = new Date();
+//       const elemMatch = {};
+
+//       if (overdue === "true") {
+//         elemMatch.status = { $ne: "Paid" };
+//         elemMatch.dueDate = { $lt: today };
+//       }
+
+//       if (status) elemMatch.status = status;
+
+//       if (lateFee === "true") {
+//         elemMatch.status = "Paid";
+//         elemMatch.dueDate = { $lt: today };
+//       }
+
+//       filter.installments = { $elemMatch: elemMatch };
+//     }
+
+//     // ======= Scholarship Filter =======
+//     if (scholarship === "with") filter["scholarships.0"] = { $exists: true };
+//     else if (scholarship === "without")
+//       filter["scholarships.0"] = { $exists: false };
+//     if (scholarshipType) filter["scholarships.type"] = scholarshipType;
+
+//     // ======= Student Name / Registration Number Filter =======
+//     if (registrationNumber || studentName) {
+//       const studentFilter = {};
+//       let students = [];
+
+//       if (registrationNumber)
+//         studentFilter.registrationNumber = registrationNumber;
+
+//       if (studentName) {
+//         students = await Student.find({
+//           $expr: {
+//             $regexMatch: {
+//               input: {
+//                 $concat: [
+//                   { $ifNull: ["$firstName", ""] },
+//                   " ",
+//                   { $ifNull: ["$lastName", ""] },
+//                 ],
+//               },
+//               regex: studentName.replace(/\s+/g, ".*"),
+//               options: "i",
+//             },
+//           },
+//           admin: schoolAdminId,
+//         }).select("_id");
+//       } else {
+//         students = await Student.find({
+//           ...studentFilter,
+//           admin: schoolAdminId,
+//         }).select("_id");
+//       }
+
+//       if (students.length)
+//         filter.studentId = { $in: students.map((s) => s._id) };
+//       else {
+//         return res.status(200).json({
+//           page: Number(page),
+//           limit: Number(limit),
+//           totalStudents: 0,
+//           totalCollected: 0,
+//           totalPending: 0,
+//           totalLateFeeSubmitters: 0,
+//           fees: [],
+//         });
+//       }
+//     }
+
+//     // ======= Pagination =======
+//     const skip = (page - 1) * limit;
+
+//     // ======= Fetch Fees =======
+//     const fees = await StudentFee.find(filter)
+//       .populate("studentId", "firstName lastName registrationNumber classId")
+//       .populate("classId", "grade section")
+//       .populate("structureId", "session totalAmount amountPerInstallment")
+//       .populate("admin", "schoolName")
+//       .skip(skip)
+//       .limit(Number(limit));
+
+//     // ======= KPI Totals =======
+//     const totalStudents = await StudentFee.countDocuments(filter);
+//     let totalCollected = 0;
+//     let totalPending = 0;
+//     let totalLateFeeSubmitters = 0;
+//     const today = new Date();
+
+//     fees.forEach((fee) => {
+//       totalCollected += fee.totalPaid || 0;
+//       totalPending += fee.balance || 0;
+
+//       const hasLateFee = fee.installments.some(
+//         (inst) => inst.status === "Paid" && inst.dueDate < today,
+//       );
+//       if (hasLateFee) totalLateFeeSubmitters += 1;
+//     });
+
+//     res.status(200).json({
+//       page: Number(page),
+//       limit: Number(limit),
+//       totalStudents,
+//       totalCollected,
+//       totalPending,
+//       totalLateFeeSubmitters,
+//       fees,
+//     });
+//   } catch (error) {
+//     console.error("Error searching fees:", error);
+//     res.status(500).json({ error: "Server error while searching fees" });
+//   }
+// };
 
 
 //fixed

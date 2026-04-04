@@ -8,7 +8,11 @@ import {
   updateOtherFeeStructure,
   getStudentOtherFeeByRegNo,
   deleteOtherFeeStructure,
-  getAllOtherFeeStructures
+  getAllOtherFeeStructures,
+  addInstallmentsToStudentFee,      // Add this
+  getAllStudentOtherFees,            // Add this
+  getStudentFeeById,                 // Add this
+  getOtherFeeStructureById     
 } from "../controllers/otherFeeController.js";
 
 import { verifyToken } from "../middlewares/authMiddleware.js";
@@ -54,11 +58,23 @@ router.post("/structure/:structureId/student/:studentId/apply", applyFeeStructur
    📋 GET ROUTES
 -------------------------------------------------- */
 
+// Get all student other fees (NEW)
+router.get("/student-fees", getAllStudentOtherFees);
+
+// Get student fee by ID (NEW)
+router.get("/student-fee/:studentFeeId", getStudentFeeById);
+
+// Get student other fee by registration number
+router.get("/student/regno/:registrationNumber", getStudentOtherFeeByRegNo);
+
 // Get student other fee by registration number
 router.get(
   "/student/regno/:registrationNumber",
   getStudentOtherFeeByRegNo
 );
+// Add installments to existing student fee (NEW)
+router.patch("/student-fee/:studentFeeId/add-installments", addInstallmentsToStudentFee);
+
 
 /* -------------------------------------------------
    💰 PAYMENT

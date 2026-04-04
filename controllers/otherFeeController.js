@@ -95,14 +95,113 @@ export const createOtherFeeStructure = async (req, res) => {
   }
 };
 
+// // ============================================
+// // CONTROLLER 2: APPLY FEE STRUCTURE TO SPECIFIC STUDENTS
+// // ============================================
+// export const applyFeeStructureToStudents = async (req, res) => {
+//   try {
+//     const adminId = req.schoolAdminId;
+//     const { structureId } = req.params;
+//     const { studentIds } = req.body;
+
+//     // Validate structureId
+//     if (!structureId) {
+//       return res.status(400).json({ error: "Structure ID is required" });
+//     }
+
+//     // Validate studentIds
+//     if (!studentIds || !studentIds.length) {
+//       return res.status(400).json({ error: "At least one student ID is required" });
+//     }
+
+//     // Find the fee structure
+//     const structure = await OtherFeeStructure.findOne({
+//       _id: structureId,
+//       admin: adminId,
+//     });
+
+//     if (!structure) {
+//       return res.status(404).json({ error: "Fee structure not found" });
+//     }
+
+//     // Check if any of these students already have this fee applied
+//     const existingApplications = await StudentOtherFee.find({
+//       structureId: structure._id,
+//       studentId: { $in: studentIds },
+//       admin: adminId,
+//     });
+
+//     if (existingApplications.length > 0) {
+//       const existingStudentIds = existingApplications.map(app => app.studentId.toString());
+//       return res.status(409).json({
+//         error: "Some students already have this fee structure applied",
+//         existingStudentIds,
+//         message: `Fee already applied to ${existingApplications.length} student(s)`,
+//       });
+//     }
+
+//     // Find the students
+//     const students = await Student.find({
+//       _id: { $in: studentIds },
+//       classId: structure.classId,
+//       admin: adminId,
+//     });
+
+//     if (!students.length) {
+//       return res.status(404).json({
+//         error: "No valid students found",
+//       });
+//     }
+
+//     // Create fee records for selected students
+//     const studentFees = students.map((student) => ({
+//       admin: adminId,
+//       studentId: student._id,
+//       classId: structure.classId,
+//       session: structure.session,
+//       structureId: structure._id,
+//       totalAmount: structure.totalAmount,
+//       netPayable: structure.totalAmount,
+//       totalPaid: 0,
+//       balance: structure.totalAmount,
+//       installments: structure.monthDetails.map((m) => ({
+//         name: m.name,
+//         month: m.month,
+//         startDate: m.startDate,
+//         dueDate: m.dueDate,
+//         amount: m.amount,
+//         status: "Pending",
+//         amountPaid: 0,
+//       })),
+//       createdBy: req.user.id,
+//     }));
+
+//     const created = await StudentOtherFee.insertMany(studentFees);
+
+//     res.status(201).json({
+//       success: true,
+//       message: `Fee structure applied to ${students.length} student(s)`,
+//       structureId: structure._id,
+//       studentsAffected: students.length,
+//       studentFees: created,
+//     });
+//   } catch (error) {
+//     console.error("Apply Fee Structure Error:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 // ============================================
-// CONTROLLER 2: APPLY FEE STRUCTURE TO SPECIFIC STUDENTS
+// CONTROLLER 3: APPLY FEE STRUCTURE TO SINGLE STUDENT
+// ============================================
+// ============================================
+// CONTROLLER 2: APPLY FEE STRUCTURE TO SPECIFIC STUDENTS (WITH INSTALLMENT SELECTION)
 // ============================================
 export const applyFeeStructureToStudents = async (req, res) => {
   try {
     const adminId = req.schoolAdminId;
     const { structureId } = req.params;
-    const { studentIds } = req.body;
+    const { studentIds, installmentIndices } = req.body;
 
     // Validate structureId
     if (!structureId) {
@@ -123,6 +222,28 @@ export const applyFeeStructureToStudents = async (req, res) => {
     if (!structure) {
       return res.status(404).json({ error: "Fee structure not found" });
     }
+
+    // Select installments (all if not specified)
+    let selectedInstallments = structure.monthDetails;
+    if (installmentIndices && installmentIndices.length) {
+      selectedInstallments = installmentIndices.map(idx => {
+        if (idx < 0 || idx >= structure.monthDetails.length) {
+          throw new Error(`Invalid installment index: ${idx}`);
+        }
+        return structure.monthDetails[idx];
+      });
+      
+      // Validate no duplicates
+      if (new Set(installmentIndices).size !== installmentIndices.length) {
+        return res.status(400).json({ error: "Duplicate installment indices not allowed" });
+      }
+    }
+
+    // Calculate total amount for selected installments
+    const totalSelectedAmount = selectedInstallments.reduce(
+      (sum, inst) => sum + inst.amount, 
+      0
+    );
 
     // Check if any of these students already have this fee applied
     const existingApplications = await StudentOtherFee.find({
@@ -153,23 +274,23 @@ export const applyFeeStructureToStudents = async (req, res) => {
       });
     }
 
-    // Create fee records for selected students
+    // Create fee records for selected students with chosen installments
     const studentFees = students.map((student) => ({
       admin: adminId,
       studentId: student._id,
       classId: structure.classId,
       session: structure.session,
       structureId: structure._id,
-      totalAmount: structure.totalAmount,
-      netPayable: structure.totalAmount,
+      totalAmount: totalSelectedAmount,
+      netPayable: totalSelectedAmount,
       totalPaid: 0,
-      balance: structure.totalAmount,
-      installments: structure.monthDetails.map((m) => ({
-        name: m.name,
-        month: m.month,
-        startDate: m.startDate,
-        dueDate: m.dueDate,
-        amount: m.amount,
+      balance: totalSelectedAmount,
+      installments: selectedInstallments.map((inst) => ({
+        name: inst.name,
+        month: inst.month,
+        startDate: inst.startDate,
+        dueDate: inst.dueDate,
+        amount: inst.amount,
         status: "Pending",
         amountPaid: 0,
       })),
@@ -180,9 +301,11 @@ export const applyFeeStructureToStudents = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `Fee structure applied to ${students.length} student(s)`,
+      message: `Fee structure applied to ${students.length} student(s) with ${selectedInstallments.length} installment(s)`,
       structureId: structure._id,
       studentsAffected: students.length,
+      installmentsApplied: selectedInstallments.length,
+      totalAmount: totalSelectedAmount,
       studentFees: created,
     });
   } catch (error) {
@@ -191,13 +314,93 @@ export const applyFeeStructureToStudents = async (req, res) => {
   }
 };
 
+
+// export const applyFeeStructureToSingleStudent = async (req, res) => {
+//   try {
+//     const adminId = req.schoolAdminId;
+//     const { structureId, studentId } = req.params;
+
+//     // Find the fee structure
+//     const structure = await OtherFeeStructure.findOne({
+//       _id: structureId,
+//       admin: adminId,
+//     });
+
+//     if (!structure) {
+//       return res.status(404).json({ error: "Fee structure not found" });
+//     }
+
+//     // Find the student
+//     const student = await Student.findOne({
+//       _id: studentId,
+//       classId: structure.classId,
+//       admin: adminId,
+//     });
+
+//     if (!student) {
+//       return res.status(404).json({
+//         error: "Student not found or not in the correct class",
+//       });
+//     }
+
+//     // Check if already applied
+//     const existing = await StudentOtherFee.findOne({
+//       structureId: structure._id,
+//       studentId: student._id,
+//       admin: adminId,
+//     });
+
+//     if (existing) {
+//       return res.status(409).json({
+//         error: "Fee structure already applied to this student",
+//       });
+//     }
+
+//     // Create fee record for the student
+//     const studentFee = await StudentOtherFee.create({
+//       admin: adminId,
+//       studentId: student._id,
+//       classId: structure.classId,
+//       session: structure.session,
+//       structureId: structure._id,
+//       totalAmount: structure.totalAmount,
+//       netPayable: structure.totalAmount,
+//       totalPaid: 0,
+//       balance: structure.totalAmount,
+//       installments: structure.monthDetails.map((m) => ({
+//         name: m.name,
+//         month: m.month,
+//         startDate: m.startDate,
+//         dueDate: m.dueDate,
+//         amount: m.amount,
+//         status: "Pending",
+//         amountPaid: 0,
+//       })),
+//       createdBy: req.user.id,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Fee structure applied to student successfully",
+//       studentFee,
+//     });
+//   } catch (error) {
+//     console.error("Apply Fee Structure to Single Student Error:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 // ============================================
-// CONTROLLER 3: APPLY FEE STRUCTURE TO SINGLE STUDENT
+// COLLECT OTHER FEE (UNCHANGED)
+// ============================================
+// ============================================
+// CONTROLLER 3: APPLY FEE STRUCTURE TO SINGLE STUDENT (WITH INSTALLMENT SELECTION)
 // ============================================
 export const applyFeeStructureToSingleStudent = async (req, res) => {
   try {
     const adminId = req.schoolAdminId;
     const { structureId, studentId } = req.params;
+    const { installmentIndices } = req.body;
 
     // Find the fee structure
     const structure = await OtherFeeStructure.findOne({
@@ -208,6 +411,28 @@ export const applyFeeStructureToSingleStudent = async (req, res) => {
     if (!structure) {
       return res.status(404).json({ error: "Fee structure not found" });
     }
+
+    // Select installments (all if not specified)
+    let selectedInstallments = structure.monthDetails;
+    if (installmentIndices && installmentIndices.length) {
+      selectedInstallments = installmentIndices.map(idx => {
+        if (idx < 0 || idx >= structure.monthDetails.length) {
+          throw new Error(`Invalid installment index: ${idx}`);
+        }
+        return structure.monthDetails[idx];
+      });
+      
+      // Validate no duplicates
+      if (new Set(installmentIndices).size !== installmentIndices.length) {
+        return res.status(400).json({ error: "Duplicate installment indices not allowed" });
+      }
+    }
+
+    // Calculate total amount for selected installments
+    const totalSelectedAmount = selectedInstallments.reduce(
+      (sum, inst) => sum + inst.amount, 
+      0
+    );
 
     // Find the student
     const student = await Student.findOne({
@@ -235,23 +460,23 @@ export const applyFeeStructureToSingleStudent = async (req, res) => {
       });
     }
 
-    // Create fee record for the student
+    // Create fee record for the student with selected installments
     const studentFee = await StudentOtherFee.create({
       admin: adminId,
       studentId: student._id,
       classId: structure.classId,
       session: structure.session,
       structureId: structure._id,
-      totalAmount: structure.totalAmount,
-      netPayable: structure.totalAmount,
+      totalAmount: totalSelectedAmount,
+      netPayable: totalSelectedAmount,
       totalPaid: 0,
-      balance: structure.totalAmount,
-      installments: structure.monthDetails.map((m) => ({
-        name: m.name,
-        month: m.month,
-        startDate: m.startDate,
-        dueDate: m.dueDate,
-        amount: m.amount,
+      balance: totalSelectedAmount,
+      installments: selectedInstallments.map((inst) => ({
+        name: inst.name,
+        month: inst.month,
+        startDate: inst.startDate,
+        dueDate: inst.dueDate,
+        amount: inst.amount,
         status: "Pending",
         amountPaid: 0,
       })),
@@ -260,7 +485,9 @@ export const applyFeeStructureToSingleStudent = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Fee structure applied to student successfully",
+      message: `Fee structure applied to student successfully with ${selectedInstallments.length} installment(s)`,
+      totalAmount: totalSelectedAmount,
+      installmentsApplied: selectedInstallments.length,
       studentFee,
     });
   } catch (error) {
@@ -269,9 +496,6 @@ export const applyFeeStructureToSingleStudent = async (req, res) => {
   }
 };
 
-// ============================================
-// COLLECT OTHER FEE (UNCHANGED)
-// ============================================
 export const collectOtherFee = async (req, res) => {
   try {
     const adminId = req.schoolAdminId;
@@ -533,6 +757,178 @@ export const getAllOtherFeeStructures = async (req, res) => {
     res.status(500).json({
       error: "Failed to fetch other fee structures",
     });
+  }
+};
+
+// Add installments to existing student fee
+export const addInstallmentsToStudentFee = async (req, res) => {
+  try {
+    const adminId = req.schoolAdminId;
+    const { studentFeeId } = req.params;
+    const { installmentIndices } = req.body;
+
+    if (!installmentIndices || !installmentIndices.length) {
+      return res.status(400).json({ error: "At least one installment index is required" });
+    }
+
+    // Find the student fee record
+    const studentFee = await StudentOtherFee.findOne({
+      _id: studentFeeId,
+      admin: adminId,
+    }).populate('structureId');
+
+    if (!studentFee) {
+      return res.status(404).json({ error: "Student fee record not found" });
+    }
+
+    // Get the original structure
+    const structure = await OtherFeeStructure.findById(studentFee.structureId);
+    if (!structure) {
+      return res.status(404).json({ error: "Original fee structure not found" });
+    }
+
+    // Check which installments are already present
+    const existingInstallmentMonths = new Set(
+      studentFee.installments.map(inst => inst.month)
+    );
+
+    // Find new installments to add (not already existing)
+    const newInstallments = [];
+    for (const idx of installmentIndices) {
+      const installment = structure.monthDetails[idx];
+      if (!existingInstallmentMonths.has(installment.month)) {
+        newInstallments.push({
+          name: installment.name,
+          month: installment.month,
+          startDate: installment.startDate,
+          dueDate: installment.dueDate,
+          amount: installment.amount,
+          status: "Pending",
+          amountPaid: 0,
+        });
+      }
+    }
+
+    if (newInstallments.length === 0) {
+      return res.status(400).json({ 
+        error: "All selected installments are already applied to this student" 
+      });
+    }
+
+    // Calculate new total amount
+    const newTotalAmount = studentFee.totalAmount + newInstallments.reduce(
+      (sum, inst) => sum + inst.amount, 0
+    );
+
+    // Update the student fee record
+    studentFee.installments.push(...newInstallments);
+    studentFee.totalAmount = newTotalAmount;
+    studentFee.netPayable = newTotalAmount;
+    studentFee.balance = newTotalAmount - studentFee.totalPaid;
+    
+    await studentFee.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${newInstallments.length} new installment(s) added successfully`,
+      addedInstallments: newInstallments,
+      studentFee: {
+        _id: studentFee._id,
+        totalAmount: studentFee.totalAmount,
+        netPayable: studentFee.netPayable,
+        balance: studentFee.balance,
+        installments: studentFee.installments,
+      },
+    });
+  } catch (error) {
+    console.error("Add Installments Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// In your OtherFeeController.js
+
+// Get all student other fees with populated data
+export const getAllStudentOtherFees = async (req, res) => {
+  try {
+    const adminId = req.schoolAdminId;
+    
+    const studentFees = await StudentOtherFee.find({ admin: adminId })
+      .populate('studentId', 'firstName lastName registrationNumber')
+      .populate('classId', 'grade section')
+      .populate('structureId', 'title session')
+      .sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: studentFees,
+    });
+  } catch (error) {
+    console.error("Get all student other fees error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get single student fee by ID
+// In your otherFeeController.js
+export const getStudentFeeById = async (req, res) => {
+  try {
+    console.log("=== getStudentFeeById called ===");
+    console.log("studentFeeId:", req.params.studentFeeId);
+    
+    const adminId = req.schoolAdminId;
+    const { studentFeeId } = req.params;
+    
+    console.log("Admin ID:", adminId);
+    console.log("Looking for fee with ID:", studentFeeId);
+    
+    const studentFee = await StudentOtherFee.findOne({ 
+      _id: studentFeeId, 
+      admin: adminId 
+    })
+      .populate('studentId', 'firstName lastName registrationNumber')
+      .populate('classId', 'grade section')
+      .populate('structureId', 'title session monthDetails');
+    
+    console.log("Found fee:", studentFee);
+    
+    if (!studentFee) {
+      console.log("Fee not found!");
+      return res.status(404).json({ error: "Student fee record not found" });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: studentFee,
+    });
+  } catch (error) {
+    console.error("Get student fee by id error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get fee structure by ID
+export const getOtherFeeStructureById = async (req, res) => {
+  try {
+    const adminId = req.schoolAdminId;
+    const { structureId } = req.params;
+    
+    const structure = await OtherFeeStructure.findOne({ 
+      _id: structureId, 
+      admin: adminId 
+    });
+    
+    if (!structure) {
+      return res.status(404).json({ error: "Fee structure not found" });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: structure,
+    });
+  } catch (error) {
+    console.error("Get fee structure by id error:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 // import { OtherFeeStructure } from "../models/otherFeeStructureSchema.js";
